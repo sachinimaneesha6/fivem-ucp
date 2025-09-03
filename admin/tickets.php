@@ -300,4 +300,29 @@ include '../includes/header.php';
     </div>
 </div>
 
+<style>
+/* Enhanced animations for admin ticket highlighting */
+.animate-pulse-slow {
+    animation: pulse-slow 2s cubic-bezier(0.4, 0, 0.6, 1) infinite;
+}
+
+@keyframes pulse-slow {
+    0%, 100% {
+        opacity: 1;
+    }
+    50% {
+        opacity: 0.8;
+    }
+}
+
+/* Urgent ticket glow effect */
+.ticket-urgent-new {
+    box-shadow: 0 0 25px rgba(239, 68, 68, 0.4);
+}
+
+.ticket-new {
+    box-shadow: 0 0 20px rgba(34, 197, 94, 0.3);
+}
+</style>
+
 <?php include '../includes/footer.php'; ?>

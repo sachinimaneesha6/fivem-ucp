@@ -242,7 +242,8 @@ include 'includes/navbar.php';
                                      ring-2 ring-green-500 ring-opacity-50
                                  <?php endif; ?>" 
                                  :class="darkMode ? 'bg-gray-700 border-gray-600 hover:bg-gray-650' : 'bg-gray-50 border-gray-200 hover:bg-gray-100'"
-                                 x-data="{ expanded: false }">
+                                 x-data="{ expanded: false }"
+                                 data-ticket-id="<?php echo $ticket['id']; ?>">
                                 
                                 <!-- Notification Badges -->
                                 <?php if ($ticket['has_unread_response']): ?>
