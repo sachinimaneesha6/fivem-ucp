@@ -40,19 +40,23 @@ $vehicles = $vehicles_stmt->fetchAll(PDO::FETCH_ASSOC);
 
 // Vehicle image mapping
 function getVehicleImage($vehicleName) {
-    $vehicleImages = [
-        'adder' => 'https://images.pexels.com/photos/3802510/pexels-photo-3802510.jpeg?auto=compress&cs=tinysrgb&w=400',
-        'zentorno' => 'https://images.pexels.com/photos/1545743/pexels-photo-1545743.jpeg?auto=compress&cs=tinysrgb&w=400',
-        'sultan' => 'https://images.pexels.com/photos/1592384/pexels-photo-1592384.jpeg?auto=compress&cs=tinysrgb&w=400',
-        'elegy' => 'https://images.pexels.com/photos/1402787/pexels-photo-1402787.jpeg?auto=compress&cs=tinysrgb&w=400',
-        'banshee' => 'https://images.pexels.com/photos/1545743/pexels-photo-1545743.jpeg?auto=compress&cs=tinysrgb&w=400',
-        'infernus' => 'https://images.pexels.com/photos/3802510/pexels-photo-3802510.jpeg?auto=compress&cs=tinysrgb&w=400',
-        'comet' => 'https://images.pexels.com/photos/1592384/pexels-photo-1592384.jpeg?auto=compress&cs=tinysrgb&w=400',
-        'buffalo' => 'https://images.pexels.com/photos/1402787/pexels-photo-1402787.jpeg?auto=compress&cs=tinysrgb&w=400'
-    ];
-    
+    // Use local GTA V vehicle images from assets folder
     $vehicleKey = strtolower($vehicleName);
-    return $vehicleImages[$vehicleKey] ?? 'https://images.pexels.com/photos/1592384/pexels-photo-1592384.jpeg?auto=compress&cs=tinysrgb&w=400';
+    $imagePath = "assets/vehicles/{$vehicleKey}.png";
+    
+    // Check if the specific vehicle image exists
+    if (file_exists($imagePath)) {
+        return $imagePath;
+    }
+    
+    // Fallback to generic vehicle image or placeholder
+    $fallbackPath = "assets/vehicles/default.png";
+    if (file_exists($fallbackPath)) {
+        return $fallbackPath;
+    }
+    
+    // Final fallback - return null to show icon instead
+    return null;
 }
 
 function getGarageDisplayName($garage) {
@@ -228,108 +232,126 @@ include 'includes/navbar.php';
                                  :class="darkMode ? 'bg-gray-700 border-gray-600 hover:border-fivem-primary' : 'bg-gray-50 border-gray-200 hover:border-fivem-primary'">
                                 
                                 <!-- Vehicle Image -->
-                                <div class="relative h-48 overflow-hidden">
-                                    <img src="<?php echo $vehicleImage; ?>" 
-                                         alt="<?php echo htmlspecialchars($vehicle['vehicle']); ?>"
-                                         class="w-full h-full object-cover transition-transform duration-300 group-hover:scale-110">
+                                <div class="relative h-48 overflow-hidden bg-gradient-to-br from-gray-900 to-gray-800">
+                                    <?php if ($vehicleImage): ?>
+                                        <img src="<?php echo $vehicleImage; ?>" 
+                                             alt="<?php echo htmlspecialchars($vehicle['vehicle']); ?>"
+                                             class="w-full h-full object-contain transition-transform duration-300 group-hover:scale-110 p-4"
+                                             onerror="this.style.display='none'; this.nextElementSibling.style.display='flex';">
+                                        <div class="w-full h-full flex items-center justify-center" style="display: none;">
+                                            <div class="w-20 h-20 bg-gradient-to-r from-fivem-primary to-yellow-500 rounded-2xl flex items-center justify-center shadow-2xl">
+                                                <i class="fas fa-car text-white text-2xl"></i>
+                                            </div>
+                                        </div>
+                                    <?php else: ?>
+                                        <div class="w-full h-full flex items-center justify-center">
+                                            <div class="w-20 h-20 bg-gradient-to-r from-fivem-primary to-yellow-500 rounded-2xl flex items-center justify-center shadow-2xl">
+                                                <i class="fas fa-car text-white text-2xl"></i>
+                                            </div>
+                                        </div>
+                                    <?php endif; ?>
                                     
                                     <!-- Status Badge -->
-                                    <div class="absolute top-3 right-3">
-                                        <span class="inline-flex items-center px-3 py-1 rounded-full text-xs font-bold shadow-lg <?php echo $vehicle['state'] == 1 ? 'bg-green-500 text-white' : 'bg-red-500 text-white'; ?>">
+                                    <div class="absolute top-4 right-4">
+                                        <span class="inline-flex items-center px-3 py-1.5 rounded-full text-xs font-bold shadow-xl backdrop-blur-sm <?php echo $vehicle['state'] == 1 ? 'bg-green-500/90 text-white border border-green-400' : 'bg-red-500/90 text-white border border-red-400'; ?>">
                                             <div class="w-2 h-2 rounded-full mr-2 <?php echo $vehicle['state'] == 1 ? 'bg-green-200' : 'bg-red-200'; ?> animate-pulse"></div>
                                             <?php echo $vehicle['state'] == 1 ? 'Available' : 'Impounded'; ?>
                                         </span>
                                     </div>
                                     
-                                    <!-- Gradient Overlay -->
-                                    <div class="absolute inset-0 bg-gradient-to-t from-black/60 via-transparent to-transparent"></div>
+                                    <!-- Enhanced Gradient Overlay -->
+                                    <div class="absolute inset-0 bg-gradient-to-t from-black/80 via-black/20 to-transparent"></div>
                                     
                                     <!-- Vehicle Name Overlay -->
-                                    <div class="absolute bottom-3 left-3">
-                                        <h3 class="text-xl font-bold text-white"><?php echo htmlspecialchars(ucwords($vehicle['vehicle'])); ?></h3>
-                                        <p class="text-gray-200 text-sm font-medium">Plate: <?php echo htmlspecialchars($vehicle['plate']); ?></p>
+                                    <div class="absolute bottom-4 left-4 right-4">
+                                        <h3 class="text-xl font-bold text-white mb-1 drop-shadow-lg"><?php echo htmlspecialchars(ucwords($vehicle['vehicle'])); ?></h3>
+                                        <div class="flex items-center justify-between">
+                                            <p class="text-gray-200 text-sm font-medium">
+                                                <i class="fas fa-id-card mr-1"></i>
+                                                <?php echo htmlspecialchars($vehicle['plate']); ?>
+                                            </p>
+                                            <p class="text-gray-200 text-xs">
+                                                <i class="fas fa-road mr-1"></i>
+                                                <?php echo number_format($vehicle['drivingdistance'] ?? 0); ?> km
+                                            </p>
+                                        </div>
                                     </div>
                                 </div>
                                 
                                 <!-- Vehicle Details -->
-                                <div class="p-6">
-                                    <!-- Condition Bars -->
-                                    <div class="grid grid-cols-3 gap-4 mb-6">
-                                        <div class="text-center">
-                                            <div class="w-12 h-12 rounded-xl flex items-center justify-center mx-auto mb-2 bg-gradient-to-r from-blue-500 to-blue-600 shadow-lg">
-                                                <i class="fas fa-gas-pump text-white"></i>
-                                            </div>
-                                            <p class="text-xs font-medium theme-transition" :class="darkMode ? 'text-gray-400' : 'text-gray-600'">Fuel</p>
-                                            <div class="w-full h-2 rounded-full mt-1 theme-transition" :class="darkMode ? 'bg-gray-600' : 'bg-gray-300'">
-                                                <div class="bg-gradient-to-r from-blue-500 to-blue-400 h-2 rounded-full transition-all duration-500" 
-                                                     style="width: <?php echo $vehicle['fuel']; ?>%"></div>
-                                            </div>
-                                            <p class="text-sm font-bold mt-1 theme-transition" :class="darkMode ? 'text-white' : 'text-gray-900'"><?php echo $vehicle['fuel']; ?>%</p>
+                                <div class="p-6 space-y-6">
+                                    <!-- Parking Location -->
+                                    <div class="flex items-center p-4 rounded-xl theme-transition" :class="darkMode ? 'bg-gray-800 border border-gray-600' : 'bg-gray-200 border border-gray-300'">
+                                        <div class="w-12 h-12 bg-gradient-to-r from-purple-500 to-purple-600 rounded-xl flex items-center justify-center mr-4 shadow-lg">
+                                            <i class="fas fa-map-marker-alt text-white"></i>
                                         </div>
-                                        
-                                        <div class="text-center">
-                                            <div class="w-12 h-12 rounded-xl flex items-center justify-center mx-auto mb-2 bg-gradient-to-r from-green-500 to-green-600 shadow-lg">
-                                                <i class="fas fa-cog text-white"></i>
-                                            </div>
-                                            <p class="text-xs font-medium theme-transition" :class="darkMode ? 'text-gray-400' : 'text-gray-600'">Engine</p>
-                                            <div class="w-full h-2 rounded-full mt-1 theme-transition" :class="darkMode ? 'bg-gray-600' : 'bg-gray-300'">
-                                                <div class="bg-gradient-to-r from-green-500 to-green-400 h-2 rounded-full transition-all duration-500" 
-                                                     style="width: <?php echo round($vehicle['engine']/10); ?>%"></div>
-                                            </div>
-                                            <p class="text-sm font-bold mt-1 theme-transition" :class="darkMode ? 'text-white' : 'text-gray-900'"><?php echo round($vehicle['engine']/10); ?>%</p>
+                                        <div class="flex-1">
+                                            <p class="text-sm font-medium theme-transition" :class="darkMode ? 'text-gray-400' : 'text-gray-600'">Parked at</p>
+                                            <p class="font-bold theme-transition" :class="darkMode ? 'text-white' : 'text-gray-900'"><?php echo htmlspecialchars($garageDisplay); ?></p>
                                         </div>
-                                        
-                                        <div class="text-center">
-                                            <div class="w-12 h-12 rounded-xl flex items-center justify-center mx-auto mb-2 bg-gradient-to-r from-yellow-500 to-yellow-600 shadow-lg">
-                                                <i class="fas fa-car-crash text-white"></i>
-                                            </div>
-                                            <p class="text-xs font-medium theme-transition" :class="darkMode ? 'text-gray-400' : 'text-gray-600'">Body</p>
-                                            <div class="w-full h-2 rounded-full mt-1 theme-transition" :class="darkMode ? 'bg-gray-600' : 'bg-gray-300'">
-                                                <div class="bg-gradient-to-r from-yellow-500 to-yellow-400 h-2 rounded-full transition-all duration-500" 
-                                                     style="width: <?php echo round($vehicle['body']/10); ?>%"></div>
-                                            </div>
-                                            <p class="text-sm font-bold mt-1 theme-transition" :class="darkMode ? 'text-white' : 'text-gray-900'"><?php echo round($vehicle['body']/10); ?>%</p>
+                                        <div class="text-right">
+                                            <span class="inline-flex items-center px-2 py-1 rounded-full text-xs font-medium <?php echo $vehicle['state'] == 1 ? 'bg-green-100 text-green-800' : 'bg-red-100 text-red-800'; ?>">
+                                                <?php echo $vehicle['state'] == 1 ? 'In Garage' : 'Impounded'; ?>
+                                            </span>
                                         </div>
                                     </div>
                                     
-                                    <!-- Parking Location -->
-                                    <div class="rounded-lg p-4 mb-4 theme-transition" :class="darkMode ? 'bg-gray-800 border border-gray-600' : 'bg-gray-200 border border-gray-300'">
-                                        <div class="flex items-center">
-                                            <div class="w-10 h-10 bg-gradient-to-r from-purple-500 to-purple-600 rounded-lg flex items-center justify-center mr-3 shadow-md">
-                                                <i class="fas fa-map-marker-alt text-white"></i>
+                                    <!-- Condition Bars -->
+                                    <div class="grid grid-cols-3 gap-4">
+                                        <div class="text-center">
+                                            <div class="w-14 h-14 rounded-xl flex items-center justify-center mx-auto mb-3 bg-gradient-to-r from-blue-500 to-blue-600 shadow-lg transform transition-transform hover:scale-110">
+                                                <i class="fas fa-gas-pump text-white text-lg"></i>
                                             </div>
-                                            <div>
-                                                <p class="text-sm font-medium theme-transition" :class="darkMode ? 'text-gray-400' : 'text-gray-600'">Parked at</p>
-                                                <p class="font-semibold theme-transition" :class="darkMode ? 'text-white' : 'text-gray-900'"><?php echo htmlspecialchars($garageDisplay); ?></p>
+                                            <p class="text-xs font-bold theme-transition mb-2" :class="darkMode ? 'text-gray-300' : 'text-gray-700'">FUEL</p>
+                                            <div class="w-full h-3 rounded-full theme-transition shadow-inner" :class="darkMode ? 'bg-gray-600' : 'bg-gray-300'">
+                                                <div class="bg-gradient-to-r from-blue-500 to-blue-400 h-3 rounded-full transition-all duration-700 shadow-sm" 
+                                                     style="width: <?php echo $vehicle['fuel']; ?>%"></div>
                                             </div>
+                                            <p class="text-sm font-bold mt-2 theme-transition" :class="darkMode ? 'text-white' : 'text-gray-900'"><?php echo $vehicle['fuel']; ?>%</p>
+                                        </div>
+                                        
+                                        <div class="text-center">
+                                            <div class="w-14 h-14 rounded-xl flex items-center justify-center mx-auto mb-3 bg-gradient-to-r from-green-500 to-green-600 shadow-lg transform transition-transform hover:scale-110">
+                                                <i class="fas fa-cog text-white text-lg"></i>
+                                            </div>
+                                            <p class="text-xs font-bold theme-transition mb-2" :class="darkMode ? 'text-gray-300' : 'text-gray-700'">ENGINE</p>
+                                            <div class="w-full h-3 rounded-full theme-transition shadow-inner" :class="darkMode ? 'bg-gray-600' : 'bg-gray-300'">
+                                                <div class="bg-gradient-to-r from-green-500 to-green-400 h-3 rounded-full transition-all duration-700 shadow-sm" 
+                                                     style="width: <?php echo round($vehicle['engine']/10); ?>%"></div>
+                                            </div>
+                                            <p class="text-sm font-bold mt-2 theme-transition" :class="darkMode ? 'text-white' : 'text-gray-900'"><?php echo round($vehicle['engine']/10); ?>%</p>
+                                        </div>
+                                        
+                                        <div class="text-center">
+                                            <div class="w-14 h-14 rounded-xl flex items-center justify-center mx-auto mb-3 bg-gradient-to-r from-orange-500 to-red-500 shadow-lg transform transition-transform hover:scale-110">
+                                                <i class="fas fa-shield-alt text-white text-lg"></i>
+                                            </div>
+                                            <p class="text-xs font-bold theme-transition mb-2" :class="darkMode ? 'text-gray-300' : 'text-gray-700'">BODY</p>
+                                            <div class="w-full h-3 rounded-full theme-transition shadow-inner" :class="darkMode ? 'bg-gray-600' : 'bg-gray-300'">
+                                                <div class="bg-gradient-to-r from-orange-500 to-red-500 h-3 rounded-full transition-all duration-700 shadow-sm" 
+                                                     style="width: <?php echo round($vehicle['body']/10); ?>%"></div>
+                                            </div>
+                                            <p class="text-sm font-bold mt-2 theme-transition" :class="darkMode ? 'text-white' : 'text-gray-900'"><?php echo round($vehicle['body']/10); ?>%</p>
                                         </div>
                                     </div>
                                     
                                     <!-- Vehicle Actions -->
-                                    <div class="flex space-x-2">
+                                    <div class="flex space-x-3">
                                         <?php if ($vehicle['state'] == 1): ?>
-                                            <button onclick="spawnVehicle('<?php echo $vehicle['plate']; ?>')" 
-                                                    class="flex-1 bg-gradient-to-r from-green-600 to-green-700 hover:from-green-700 hover:to-green-800 text-white py-3 px-4 rounded-lg font-semibold transition-all duration-200 transform hover:scale-105 shadow-lg">
-                                                <i class="fas fa-play mr-2"></i>Spawn
+                                            <button onclick="spawnVehicle('<?php echo $vehicle['plate']; ?>', '<?php echo htmlspecialchars($vehicle['vehicle']); ?>')" 
+                                                    class="flex-1 bg-gradient-to-r from-green-600 to-green-700 hover:from-green-700 hover:to-green-800 text-white py-3 px-4 rounded-xl font-bold transition-all duration-300 transform hover:scale-105 hover:shadow-xl active:scale-95">
+                                                <i class="fas fa-play mr-2"></i>SPAWN
                                             </button>
-                                            <button onclick="despawnVehicle('<?php echo $vehicle['plate']; ?>')" 
-                                                    class="flex-1 bg-gradient-to-r from-yellow-600 to-yellow-700 hover:from-yellow-700 hover:to-yellow-800 text-white py-3 px-4 rounded-lg font-semibold transition-all duration-200 transform hover:scale-105 shadow-lg">
-                                                <i class="fas fa-stop mr-2"></i>Store
+                                            <button onclick="despawnVehicle('<?php echo $vehicle['plate']; ?>', '<?php echo htmlspecialchars($vehicle['vehicle']); ?>')" 
+                                                    class="flex-1 bg-gradient-to-r from-blue-600 to-blue-700 hover:from-blue-700 hover:to-blue-800 text-white py-3 px-4 rounded-xl font-bold transition-all duration-300 transform hover:scale-105 hover:shadow-xl active:scale-95">
+                                                <i class="fas fa-warehouse mr-2"></i>STORE
                                             </button>
                                         <?php else: ?>
-                                            <button onclick="unimpoundVehicle('<?php echo $vehicle['plate']; ?>', <?php echo $vehicle['depotprice']; ?>)" 
-                                                    class="w-full bg-gradient-to-r from-blue-600 to-blue-700 hover:from-blue-700 hover:to-blue-800 text-white py-3 px-4 rounded-lg font-semibold transition-all duration-200 transform hover:scale-105 shadow-lg">
-                                                <i class="fas fa-wrench mr-2"></i>Unimpound ($<?php echo number_format($vehicle['depotprice']); ?>)
+                                            <button onclick="unimpoundVehicle('<?php echo $vehicle['plate']; ?>', <?php echo $vehicle['depotprice']; ?>, '<?php echo htmlspecialchars($vehicle['vehicle']); ?>')" 
+                                                    class="w-full bg-gradient-to-r from-red-600 to-red-700 hover:from-red-700 hover:to-red-800 text-white py-3 px-4 rounded-xl font-bold transition-all duration-300 transform hover:scale-105 hover:shadow-xl active:scale-95">
+                                                <i class="fas fa-wrench mr-2"></i>UNIMPOUND - $<?php echo number_format($vehicle['depotprice']); ?>
                                             </button>
                                         <?php endif; ?>
-                                    </div>
-                                    
-                                    <!-- Additional Info -->
-                                    <div class="mt-4 pt-4 border-t theme-transition" :class="darkMode ? 'border-gray-600' : 'border-gray-300'">
-                                        <div class="flex justify-between text-sm">
-                                            <span class="theme-transition" :class="darkMode ? 'text-gray-400' : 'text-gray-600'">Mileage:</span>
-                                            <span class="font-medium theme-transition" :class="darkMode ? 'text-white' : 'text-gray-900'"><?php echo number_format($vehicle['drivingdistance'] ?? 0); ?> km</span>
-                                        </div>
                                     </div>
                                 </div>
                             </div>
@@ -527,28 +549,43 @@ include 'includes/navbar.php';
             </div>
             
             <!-- Last Known Location -->
-            <div class="rounded-xl border p-6 theme-transition" 
+            <div class="rounded-xl border p-6 theme-transition card-hover" 
                  :class="darkMode ? 'bg-gray-800 border-gray-700' : 'bg-white border-gray-200'">
                 <h3 class="text-lg font-bold mb-6 theme-transition" :class="darkMode ? 'text-white' : 'text-gray-900'">
                     <i class="fas fa-map-marker-alt text-red-400 mr-2"></i>Last Known Location
                 </h3>
-                <div class="text-center">
-                    <div class="w-16 h-16 bg-gradient-to-r from-red-500 to-red-600 rounded-2xl flex items-center justify-center mx-auto mb-4 shadow-lg">
+                <div class="text-center space-y-4">
+                    <div class="w-20 h-20 bg-gradient-to-r from-red-500 to-red-600 rounded-2xl flex items-center justify-center mx-auto shadow-2xl transform transition-transform hover:scale-110">
                         <i class="fas fa-crosshairs text-white text-xl"></i>
                     </div>
-                    <div class="space-y-2">
-                        <div class="rounded-lg p-3 theme-transition" :class="darkMode ? 'bg-gray-700' : 'bg-gray-100'">
-                            <p class="text-sm font-medium theme-transition" :class="darkMode ? 'text-gray-400' : 'text-gray-600'">Coordinates</p>
-                            <div class="space-y-1 mt-2">
-                                <p class="font-mono text-sm theme-transition" :class="darkMode ? 'text-white' : 'text-gray-900'">X: <?php echo round($position['x'], 2); ?></p>
-                                <p class="font-mono text-sm theme-transition" :class="darkMode ? 'text-white' : 'text-gray-900'">Y: <?php echo round($position['y'], 2); ?></p>
-                                <p class="font-mono text-sm theme-transition" :class="darkMode ? 'text-white' : 'text-gray-900'">Z: <?php echo round($position['z'], 2); ?></p>
+                    
+                    <div class="rounded-xl p-4 theme-transition" :class="darkMode ? 'bg-gray-700' : 'bg-gray-100'">
+                        <p class="text-sm font-bold theme-transition mb-3" :class="darkMode ? 'text-gray-300' : 'text-gray-700'">GPS COORDINATES</p>
+                        <div class="grid grid-cols-3 gap-2 text-center">
+                            <div class="p-2 rounded-lg theme-transition" :class="darkMode ? 'bg-gray-800' : 'bg-white'">
+                                <p class="text-xs theme-transition" :class="darkMode ? 'text-gray-400' : 'text-gray-600'">X</p>
+                                <p class="font-mono text-sm font-bold theme-transition" :class="darkMode ? 'text-white' : 'text-gray-900'"><?php echo round($position['x'], 1); ?></p>
+                            </div>
+                            <div class="p-2 rounded-lg theme-transition" :class="darkMode ? 'bg-gray-800' : 'bg-white'">
+                                <p class="text-xs theme-transition" :class="darkMode ? 'text-gray-400' : 'text-gray-600'">Y</p>
+                                <p class="font-mono text-sm font-bold theme-transition" :class="darkMode ? 'text-white' : 'text-gray-900'"><?php echo round($position['y'], 1); ?></p>
+                            </div>
+                            <div class="p-2 rounded-lg theme-transition" :class="darkMode ? 'bg-gray-800' : 'bg-white'">
+                                <p class="text-xs theme-transition" :class="darkMode ? 'text-gray-400' : 'text-gray-600'">Z</p>
+                                <p class="font-mono text-sm font-bold theme-transition" :class="darkMode ? 'text-white' : 'text-gray-900'"><?php echo round($position['z'], 1); ?></p>
                             </div>
                         </div>
+                    </div>
+                    
+                    <div class="space-y-2">
                         <a href="map.php?character=<?php echo $character['citizenid']; ?>" 
-                           class="inline-flex items-center px-4 py-2 bg-gradient-to-r from-red-600 to-red-700 hover:from-red-700 hover:to-red-800 text-white text-sm font-semibold rounded-lg transition-all duration-200 transform hover:scale-105 shadow-lg">
-                            <i class="fas fa-map mr-2"></i>View on Map
+                           class="block w-full bg-gradient-to-r from-red-600 to-red-700 hover:from-red-700 hover:to-red-800 text-white py-3 px-4 rounded-xl font-bold transition-all duration-300 transform hover:scale-105 hover:shadow-xl active:scale-95">
+                            <i class="fas fa-map mr-2"></i>VIEW ON MAP
                         </a>
+                        <button onclick="copyCoordinates(<?php echo $position['x']; ?>, <?php echo $position['y']; ?>, <?php echo $position['z']; ?>)" 
+                                class="w-full bg-gradient-to-r from-gray-600 to-gray-700 hover:from-gray-700 hover:to-gray-800 text-white py-2 px-4 rounded-lg font-medium transition-all duration-300 transform hover:scale-105">
+                            <i class="fas fa-copy mr-2"></i>Copy Coords
+                        </button>
                     </div>
                 </div>
             </div>
@@ -584,22 +621,146 @@ include 'includes/navbar.php';
 
 <script>
 // Vehicle action functions
-function spawnVehicle(plate) {
-    showNotification('Vehicle Spawn', `Spawning vehicle with plate ${plate}...`, 'info');
+function spawnVehicle(plate, vehicleName) {
+    showNotification('🚗 Vehicle Spawn', `Spawning ${vehicleName} (${plate})...`, 'info');
     // In real implementation, this would call your FiveM server API
+    
+    // Add visual feedback
+    const button = event.target;
+    const originalText = button.innerHTML;
+    button.innerHTML = '<i class="fas fa-spinner fa-spin mr-2"></i>SPAWNING...';
+    button.disabled = true;
+    
+    setTimeout(() => {
+        button.innerHTML = originalText;
+        button.disabled = false;
+        showNotification('✅ Vehicle Ready', `${vehicleName} has been spawned successfully!`, 'success');
+    }, 2000);
 }
 
-function despawnVehicle(plate) {
-    showNotification('Vehicle Storage', `Storing vehicle with plate ${plate}...`, 'info');
+function despawnVehicle(plate, vehicleName) {
+    showNotification('🏠 Vehicle Storage', `Storing ${vehicleName} (${plate})...`, 'info');
     // In real implementation, this would call your FiveM server API
+    
+    const button = event.target;
+    const originalText = button.innerHTML;
+    button.innerHTML = '<i class="fas fa-spinner fa-spin mr-2"></i>STORING...';
+    button.disabled = true;
+    
+    setTimeout(() => {
+        button.innerHTML = originalText;
+        button.disabled = false;
+        showNotification('✅ Vehicle Stored', `${vehicleName} has been stored in garage!`, 'success');
+    }, 1500);
 }
 
-function unimpoundVehicle(plate, cost) {
-    if (confirm(`Are you sure you want to unimpound vehicle ${plate} for $${cost.toLocaleString()}?`)) {
-        showNotification('Vehicle Unimpound', `Processing unimpound for ${plate}...`, 'warning');
+function unimpoundVehicle(plate, cost, vehicleName) {
+    if (confirm(`Are you sure you want to unimpound ${vehicleName} (${plate}) for $${cost.toLocaleString()}?`)) {
+        showNotification('💰 Processing Payment', `Unimpounding ${vehicleName} for $${cost.toLocaleString()}...`, 'warning');
         // In real implementation, this would call your FiveM server API
+        
+        const button = event.target;
+        const originalText = button.innerHTML;
+        button.innerHTML = '<i class="fas fa-spinner fa-spin mr-2"></i>PROCESSING...';
+        button.disabled = true;
+        
+        setTimeout(() => {
+            button.innerHTML = originalText;
+            button.disabled = false;
+            showNotification('✅ Vehicle Released', `${vehicleName} has been unimpounded and is now available!`, 'success');
+        }, 3000);
     }
 }
+
+function copyCoordinates(x, y, z) {
+    const coords = `${x.toFixed(2)}, ${y.toFixed(2)}, ${z.toFixed(2)}`;
+    navigator.clipboard.writeText(coords).then(() => {
+        showNotification('📋 Copied', 'Coordinates copied to clipboard!', 'success');
+    }).catch(() => {
+        // Fallback for older browsers
+        const textArea = document.createElement('textarea');
+        textArea.value = coords;
+        document.body.appendChild(textArea);
+        textArea.select();
+        document.execCommand('copy');
+        document.body.removeChild(textArea);
+        showNotification('📋 Copied', 'Coordinates copied to clipboard!', 'success');
+    });
+}
+
+// Enhanced vehicle card interactions
+document.addEventListener('DOMContentLoaded', function() {
+    // Add hover effects to vehicle cards
+    const vehicleCards = document.querySelectorAll('.group');
+    vehicleCards.forEach(card => {
+        card.addEventListener('mouseenter', function() {
+            this.style.transform = 'translateY(-8px) scale(1.02)';
+        });
+        
+        card.addEventListener('mouseleave', function() {
+            this.style.transform = 'translateY(0) scale(1)';
+        });
+    });
+    
+    // Add loading states to buttons
+    const buttons = document.querySelectorAll('button[onclick*="Vehicle"]');
+    buttons.forEach(button => {
+        button.addEventListener('click', function() {
+            this.style.transform = 'scale(0.95)';
+            setTimeout(() => {
+                this.style.transform = '';
+            }, 150);
+        });
+    });
+});
 </script>
+
+<style>
+/* Enhanced vehicle card animations */
+.group {
+    transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+.group:hover {
+    transform: translateY(-8px) scale(1.02);
+}
+
+/* Better progress bar animations */
+.group:hover .bg-gradient-to-r {
+    animation: shimmer 2s infinite;
+}
+
+@keyframes shimmer {
+    0% { background-position: -200% 0; }
+    100% { background-position: 200% 0; }
+}
+
+/* Enhanced button feedback */
+button {
+    transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+button:active {
+    transform: scale(0.95);
+}
+
+/* Vehicle image hover effects */
+.group img {
+    transition: all 0.4s cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+.group:hover img {
+    transform: scale(1.1) rotate(1deg);
+}
+
+/* Enhanced shadows for depth */
+.group:hover {
+    box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.5);
+}
+
+.light .group:hover {
+    box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.15);
+}
+</style>
 
 <?php include 'includes/footer.php'; ?>
