@@ -172,7 +172,42 @@ include 'includes/navbar.php';
                                     </div>
                                     <span class="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium <?php echo $vehicle['state'] == 1 ? 'bg-green-100 text-green-800' : 'bg-red-100 text-red-800'; ?>">
                                         <?php echo $vehicle['state'] == 1 ? 'Available' : 'Impounded'; ?>
-                            <div class="bg-gray-700 rounded-lg p-4 border border-gray-600 hover:border-gray-500 transition-all">
+                    </span>
+                </div>
+                <div class="grid grid-cols-3 gap-2 mt-3">
+                    <div class="text-center">
+                        <p class="text-gray-400 text-xs">Fuel</p>
+                        <p class="text-white font-bold"><?php echo $vehicle['fuel']; ?>%</p>
+                    </div>
+                    <div class="text-center">
+                        <p class="text-gray-400 text-xs">Engine</p>
+                        <p class="text-white font-bold"><?php echo round($vehicle['engine']/10); ?>%</p>
+                    </div>
+                    <div class="text-center">
+                        <p class="text-gray-400 text-xs">Body</p>
+                        <p class="text-white font-bold"><?php echo round($vehicle['body']/10); ?>%</p>
+                    </div>
+                </div>
+            </div>
+        <?php endforeach; ?>
+    </div>
+<?php endif; ?>
+            </div>
+            
+            <!-- Inventory -->
+            <div class="bg-gray-800 rounded-xl border border-gray-700 p-6">
+                <h2 class="text-xl font-bold text-white mb-4">
+                    <i class="fas fa-boxes text-green-400 mr-2"></i>Inventory
+                </h2>
+                <?php if (empty($inventory)): ?>
+                    <div class="text-center py-8">
+                        <i class="fas fa-box-open text-4xl text-gray-600 mb-4"></i>
+                        <p class="text-gray-400">No items in inventory</p>
+                    </div>
+                <?php else: ?>
+                    <div class="grid grid-cols-2 md:grid-cols-3 gap-3">
+                        <?php foreach ($inventory as $item): ?>
+                            <div class="bg-gray-700 rounded-lg p-3 border border-gray-600 hover:border-gray-500 transition-all">
                                 <div class="flex items-center justify-between">
                                     <div class="flex items-center">
                                         <?php 
@@ -180,29 +215,29 @@ include 'includes/navbar.php';
                                         $item_image_exists = file_exists($item_image_path);
                                         ?>
                                         
-                                        <div class="w-12 h-12 mr-3 flex-shrink-0">
+                                        <div class="w-8 h-8 mr-2 flex-shrink-0">
                                             <?php if ($item_image_exists): ?>
                                                 <img src="<?php echo $item_image_path; ?>" 
                                                      alt="<?php echo htmlspecialchars($item['name']); ?>"
-                                                     class="w-full h-full object-contain rounded-lg"
+                                                     class="w-full h-full object-contain rounded"
                                                      onerror="this.style.display='none'; this.nextElementSibling.style.display='flex';">
-                                                <div class="w-full h-full bg-fivem-primary rounded-lg flex items-center justify-center" style="display: none;">
-                                                    <i class="fas fa-cube text-white text-sm"></i>
+                                                <div class="w-full h-full bg-fivem-primary rounded flex items-center justify-center" style="display: none;">
+                                                    <i class="fas fa-cube text-white text-xs"></i>
                                                 </div>
                                             <?php else: ?>
-                                                <div class="w-full h-full bg-fivem-primary rounded-lg flex items-center justify-center">
-                                                    <i class="fas fa-cube text-white text-sm"></i>
+                                                <div class="w-full h-full bg-fivem-primary rounded flex items-center justify-center">
+                                                    <i class="fas fa-cube text-white text-xs"></i>
                                                 </div>
                                             <?php endif; ?>
                                         </div>
                                         
-                                        <div>
-                                            <h4 class="text-white font-medium"><?php echo htmlspecialchars(ucwords(str_replace('_', ' ', $item['name']))); ?></h4>
-                                            <p class="text-gray-400 text-sm">Slot: <?php echo $item['slot']; ?> • Type: <?php echo htmlspecialchars($item['type']); ?></p>
+                                        <div class="min-w-0 flex-1">
+                                            <h4 class="text-white font-medium text-sm truncate"><?php echo htmlspecialchars(ucwords(str_replace('_', ' ', $item['name']))); ?></h4>
+                                            <p class="text-gray-400 text-xs">Slot: <?php echo $item['slot']; ?></p>
                                         </div>
                                     </div>
                                     <div class="text-right">
-                                        <span class="bg-fivem-primary text-white px-3 py-1 rounded-lg text-sm font-bold">
+                                        <span class="bg-fivem-primary text-white px-2 py-1 rounded text-xs font-bold">
                                             <?php echo $item['amount']; ?>x
                                         </span>
                                     </div>
@@ -224,7 +259,7 @@ include 'includes/navbar.php';
                         <span class="text-gray-400">Health:</span>
                         <div class="flex items-center">
                             <div class="w-20 bg-gray-700 rounded-full h-2 mr-2">
-                                <div class="bg-red-500 h-2 rounded-full" style="width: <?php echo (100 - ($metadata['isdead'] ? 0 : 100)); ?>%"></div>
+                                <div class="bg-red-500 h-2 rounded-full" style="width: <?php echo $metadata['isdead'] ? '0' : '100'; ?>%"></div>
                             </div>
                             <span class="text-white text-sm"><?php echo $metadata['isdead'] ? 'Dead' : 'Alive'; ?></span>
                         </div>
@@ -291,6 +326,23 @@ include 'includes/navbar.php';
                     </div>
                 </div>
             </div>
+            
+            <!-- Location -->
+            <div class="bg-gray-800 rounded-xl border border-gray-700 p-6">
+                <h3 class="text-lg font-bold text-white mb-4">Last Known Location</h3>
+                <div class="bg-gray-700 rounded-lg p-4 text-center">
+                    <i class="fas fa-map-marker-alt text-red-400 text-2xl mb-3"></i>
+                    <div class="space-y-1">
+                        <p class="text-white font-medium">Coordinates</p>
+                        <p class="text-gray-400 text-sm">X: <?php echo round($position['x'], 2); ?></p>
+                        <p class="text-gray-400 text-sm">Y: <?php echo round($position['y'], 2); ?></p>
+                        <p class="text-gray-400 text-sm">Z: <?php echo round($position['z'], 2); ?></p>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
             
             <!-- Location -->
             <div class="bg-gray-800 rounded-xl border border-gray-700 p-6">
