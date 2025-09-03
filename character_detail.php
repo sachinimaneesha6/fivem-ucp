@@ -107,9 +107,9 @@ include 'includes/navbar.php';
         </div>
     </div>
     
-    <div class="grid grid-cols-1 lg:grid-cols-4 gap-8">
+    <div class="grid grid-cols-1 xl:grid-cols-3 gap-8">
         <!-- Main Content -->
-        <div class="lg:col-span-3 space-y-8">
+        <div class="xl:col-span-2 space-y-8">
             <!-- Basic Info -->
             <div class="rounded-xl border p-6 theme-transition" 
                  :class="darkMode ? 'bg-gray-800 border-gray-700' : 'bg-white border-gray-200'">
