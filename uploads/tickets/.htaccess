@@ -1,0 +1,21 @@
+# Secure file access for ticket attachments
+<Files "*">
+    Order Deny,Allow
+    Deny from all
+</Files>
+
+# Allow access only to specific file types
+<FilesMatch "\.(jpg|jpeg|png|gif|pdf|txt)$">
+    Order Allow,Deny
+    Allow from all
+</FilesMatch>
+
+# Prevent PHP execution
+<FilesMatch "\.php$">
+    Order Deny,Allow
+    Deny from all
+</FilesMatch>
+
+# Security headers
+Header always set X-Content-Type-Options nosniff
+Header always set X-Frame-Options DENY
