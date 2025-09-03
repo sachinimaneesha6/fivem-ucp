@@ -1245,26 +1245,34 @@ function resetPlayerPassword(playerId, username) {
     }
 }
 
-async function loadPlayerDetails(playerId) {
+async function loadPlayerDetails(userId) {
     try {
-        const response = await fetch(`../api/player_details.php?id=${playerId}`);
+        console.log('🔍 Loading player details for user ID:', userId);
+        const response = await fetch(`../api/player_details.php?id=${userId}`);
+        
+        console.log('📡 API Response status:', response.status);
+        
+        if (!response.ok) {
+            const errorText = await response.text();
+            console.error('❌ API Error Response:', errorText);
+            throw new Error(`HTTP ${response.status}: ${response.statusText}\nResponse: ${errorText}`);
+        }
+        
         const data = await response.json();
+        console.log('✅ Player data received:', data);
         
         if (data.success) {
             document.getElementById('playerModalContent').innerHTML = data.html;
         } else {
-            document.getElementById('playerModalContent').innerHTML = `
-                <div class="text-center py-8">
-                    <i class="fas fa-exclamation-triangle text-red-400 text-3xl mb-4"></i>
-                    <p class="text-red-400">Failed to load player details</p>
-                </div>
-            `;
+            throw new Error(data.error || 'Unknown API error');
         }
+        
     } catch (error) {
+        console.error('❌ Error loading player details:', error);
         document.getElementById('playerModalContent').innerHTML = `
             <div class="text-center py-8">
                 <i class="fas fa-exclamation-triangle text-red-400 text-3xl mb-4"></i>
-                <p class="text-red-400">Error loading player details</p>
+                <p class="text-red-400">Error: ${error.message}</p>
             </div>
         `;
     }
