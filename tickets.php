@@ -36,8 +36,7 @@ $create_tickets_table = "CREATE TABLE IF NOT EXISTS support_tickets (
     INDEX idx_priority (priority),
     INDEX idx_category (category),
     INDEX idx_assigned_to (assigned_to),
-    INDEX idx_created_at (created_at),
-    FOREIGN KEY (assigned_to) REFERENCES user_accounts(id) ON DELETE SET NULL
+    INDEX idx_created_at (created_at)
 )";
 $db->exec($create_tickets_table);
 
@@ -54,8 +53,7 @@ $create_history_table = "CREATE TABLE IF NOT EXISTS ticket_history (
     is_internal TINYINT(1) DEFAULT 0,
     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
     INDEX idx_ticket_id (ticket_id),
-    INDEX idx_created_at (created_at),
-    FOREIGN KEY (ticket_id) REFERENCES support_tickets(id) ON DELETE CASCADE
+    INDEX idx_created_at (created_at)
 )";
 $db->exec($create_history_table);
 
@@ -69,8 +67,7 @@ $create_attachments_table = "CREATE TABLE IF NOT EXISTS ticket_attachments (
     mime_type VARCHAR(100) NOT NULL,
     uploaded_by INT NOT NULL,
     uploaded_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-    INDEX idx_ticket_id (ticket_id),
-    FOREIGN KEY (ticket_id) REFERENCES support_tickets(id) ON DELETE CASCADE
+    INDEX idx_ticket_id (ticket_id)
 )";
 $db->exec($create_attachments_table);
 

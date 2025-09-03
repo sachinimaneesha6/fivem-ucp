@@ -193,8 +193,12 @@ if ($category_filter != 'all') {
 }
 
 if ($assigned_filter != 'all') {
-    $where_conditions[] = "assigned_to = :assigned_to";
-    $params[':assigned_to'] = $assigned_filter;
+    if ($assigned_filter == 'unassigned') {
+        $where_conditions[] = "assigned_to IS NULL";
+    } else {
+        $where_conditions[] = "assigned_to = :assigned_to";
+        $params[':assigned_to'] = $assigned_filter;
+    }
 }
 
 $where_clause = !empty($where_conditions) ? 'WHERE ' . implode(' AND ', $where_conditions) : '';
@@ -228,6 +232,36 @@ $staff_stmt->execute();
 $staff_members = $staff_stmt->fetchAll(PDO::FETCH_ASSOC);
 
 // Get ticket analytics
+function getTicketAnalytics($db) {
+    $analytics = [];
+    
+    // Open tickets
+    $open_query = "SELECT COUNT(*) FROM support_tickets WHERE status IN ('open', 'in_progress')";
+    $open_stmt = $db->prepare($open_query);
+    $open_stmt->execute();
+    $analytics['open_tickets'] = $open_stmt->fetchColumn();
+    
+    // Average response time (in hours)
+    $response_query = "SELECT AVG(TIMESTAMPDIFF(HOUR, created_at, updated_at)) FROM support_tickets WHERE admin_response IS NOT NULL";
+    $response_stmt = $db->prepare($response_query);
+    $response_stmt->execute();
+    $analytics['avg_response_time'] = round($response_stmt->fetchColumn() ?? 0, 1);
+    
+    // Resolved today
+    $resolved_query = "SELECT COUNT(*) FROM support_tickets WHERE status = 'resolved' AND DATE(updated_at) = CURDATE()";
+    $resolved_stmt = $db->prepare($resolved_query);
+    $resolved_stmt->execute();
+    $analytics['resolved_today'] = $resolved_stmt->fetchColumn();
+    
+    // Urgent tickets
+    $urgent_query = "SELECT COUNT(*) FROM support_tickets WHERE priority = 'urgent' AND status NOT IN ('resolved', 'closed')";
+    $urgent_stmt = $db->prepare($urgent_query);
+    $urgent_stmt->execute();
+    $analytics['urgent_tickets'] = $urgent_stmt->fetchColumn();
+    
+    return $analytics;
+}
+
 $analytics = getTicketAnalytics($db);
 
 $page_title = 'Ticket Management';
@@ -410,18 +444,18 @@ include '../includes/header.php';
                     <p class="text-xs text-gray-400">Showing</p>
                 </div>
                 <div class="text-center">
-                    <p class="text-2xl font-bold text-red-400"><?php echo count(array_filter($tickets, fn($t) => $t['priority'] == 'urgent')); ?></p>
+                    <p class="text-2xl font-bold text-red-400"><?php echo count(array_filter($tickets, function($t) { return $t['priority'] == 'urgent'; })); ?></p>
                     <p class="text-xs text-gray-400">Urgent</p>
                 </div>
                 <div class="text-center">
-                    <p class="text-2xl font-bold text-yellow-400"><?php echo count(array_filter($tickets, fn($t) => $t['assigned_to'] == null)); ?></p>
+                    <p class="text-2xl font-bold text-yellow-400"><?php echo count(array_filter($tickets, function($t) { return $t['assigned_to'] == null; })); ?></p>
                     <p class="text-xs text-gray-400">Unassigned</p>
                 </div>
             </div>
             <div class="flex items-center space-x-2">
                 <button onclick="refreshTickets()" class="bg-gray-700 hover:bg-gray-600 text-white px-3 py-2 rounded-lg transition-colors">
                     <i class="fas fa-sync-alt"></i>
-                </select>
+                </button>
             </div>
         </div>
     </div>
@@ -692,37 +726,5 @@ function exportTickets() {
     // Implementation for CSV/PDF export
 }
 </script>
-
-<?php
-function getTicketAnalytics($db) {
-    $analytics = [];
-    
-    // Open tickets
-    $open_query = "SELECT COUNT(*) FROM support_tickets WHERE status IN ('open', 'in_progress')";
-    $open_stmt = $db->prepare($open_query);
-    $open_stmt->execute();
-    $analytics['open_tickets'] = $open_stmt->fetchColumn();
-    
-    // Average response time (in hours)
-    $response_query = "SELECT AVG(TIMESTAMPDIFF(HOUR, created_at, updated_at)) FROM support_tickets WHERE admin_response IS NOT NULL";
-    $response_stmt = $db->prepare($response_query);
-    $response_stmt->execute();
-    $analytics['avg_response_time'] = round($response_stmt->fetchColumn() ?? 0, 1);
-    
-    // Resolved today
-    $resolved_query = "SELECT COUNT(*) FROM support_tickets WHERE status = 'resolved' AND DATE(updated_at) = CURDATE()";
-    $resolved_stmt = $db->prepare($resolved_query);
-    $resolved_stmt->execute();
-    $analytics['resolved_today'] = $resolved_stmt->fetchColumn();
-    
-    // Urgent tickets
-    $urgent_query = "SELECT COUNT(*) FROM support_tickets WHERE priority = 'urgent' AND status NOT IN ('resolved', 'closed')";
-    $urgent_stmt = $db->prepare($urgent_query);
-    $urgent_stmt->execute();
-    $analytics['urgent_tickets'] = $urgent_stmt->fetchColumn();
-    
-    return $analytics;
-}
-?>
 
 <?php include '../includes/footer.php'; ?>
