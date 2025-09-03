@@ -32,11 +32,45 @@ $position = json_decode($character['position'], true);
 $inventory = json_decode($character['inventory'], true);
 
 // Get character vehicles
-$vehicles_query = "SELECT * FROM player_vehicles WHERE citizenid = :citizenid";
+$vehicles_query = "SELECT * FROM player_vehicles WHERE citizenid = :citizenid ORDER BY vehicle ASC";
 $vehicles_stmt = $db->prepare($vehicles_query);
 $vehicles_stmt->bindParam(':citizenid', $character_id);
 $vehicles_stmt->execute();
 $vehicles = $vehicles_stmt->fetchAll(PDO::FETCH_ASSOC);
+
+// Vehicle image mapping
+function getVehicleImage($vehicleName) {
+    $vehicleImages = [
+        'adder' => 'https://images.pexels.com/photos/3802510/pexels-photo-3802510.jpeg?auto=compress&cs=tinysrgb&w=400',
+        'zentorno' => 'https://images.pexels.com/photos/1545743/pexels-photo-1545743.jpeg?auto=compress&cs=tinysrgb&w=400',
+        'sultan' => 'https://images.pexels.com/photos/1592384/pexels-photo-1592384.jpeg?auto=compress&cs=tinysrgb&w=400',
+        'elegy' => 'https://images.pexels.com/photos/1402787/pexels-photo-1402787.jpeg?auto=compress&cs=tinysrgb&w=400',
+        'banshee' => 'https://images.pexels.com/photos/1545743/pexels-photo-1545743.jpeg?auto=compress&cs=tinysrgb&w=400',
+        'infernus' => 'https://images.pexels.com/photos/3802510/pexels-photo-3802510.jpeg?auto=compress&cs=tinysrgb&w=400',
+        'comet' => 'https://images.pexels.com/photos/1592384/pexels-photo-1592384.jpeg?auto=compress&cs=tinysrgb&w=400',
+        'buffalo' => 'https://images.pexels.com/photos/1402787/pexels-photo-1402787.jpeg?auto=compress&cs=tinysrgb&w=400'
+    ];
+    
+    $vehicleKey = strtolower($vehicleName);
+    return $vehicleImages[$vehicleKey] ?? 'https://images.pexels.com/photos/1592384/pexels-photo-1592384.jpeg?auto=compress&cs=tinysrgb&w=400';
+}
+
+function getGarageDisplayName($garage) {
+    $garageNames = [
+        'pillboxgarage' => 'Pillbox Medical Garage',
+        'legionsquare' => 'Legion Square Garage',
+        'spanishave' => 'Spanish Avenue Garage',
+        'caears24' => 'Caesar\'s Garage',
+        'lsairport' => 'LS Airport Garage',
+        'beachgarage' => 'Vespucci Beach Garage',
+        'sandygarage' => 'Sandy Shores Garage',
+        'paletogarage' => 'Paleto Bay Garage',
+        'motelgarage' => 'Motel Garage',
+        'apartment' => 'Apartment Garage'
+    ];
+    
+    return $garageNames[strtolower($garage)] ?? ucwords(str_replace(['garage', '_'], ['Garage', ' '], $garage));
+}
 
 $page_title = $charinfo['firstname'] . ' ' . $charinfo['lastname'];
 include 'includes/header.php';
@@ -45,104 +79,120 @@ include 'includes/navbar.php';
 
 <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
     <!-- Character Header -->
-    <div class="bg-gray-800 rounded-xl border border-gray-700 p-6 mb-8">
+    <div class="rounded-xl border p-6 mb-8 theme-transition" 
+         :class="darkMode ? 'bg-gray-800 border-gray-700' : 'bg-white border-gray-200'">
         <div class="flex flex-col md:flex-row items-start md:items-center justify-between">
             <div class="flex items-center mb-4 md:mb-0">
-                <div class="w-16 h-16 bg-fivem-primary rounded-full flex items-center justify-center mr-4">
+                <div class="w-16 h-16 bg-gradient-to-r from-fivem-primary to-yellow-500 rounded-2xl flex items-center justify-center mr-4 shadow-lg">
                     <i class="fas fa-user text-2xl text-white"></i>
                 </div>
                 <div>
-                    <h1 class="text-2xl font-bold text-white">
+                    <h1 class="text-2xl font-bold theme-transition" :class="darkMode ? 'text-white' : 'text-gray-900'">
                         <?php echo htmlspecialchars($charinfo['firstname'] . ' ' . $charinfo['lastname']); ?>
                     </h1>
-                    <p class="text-gray-400">Citizen ID: <?php echo htmlspecialchars($character['citizenid']); ?></p>
-                    <p class="text-sm text-gray-500">Last Updated: <?php echo date('M j, Y g:i A', strtotime($character['last_updated'])); ?></p>
+                    <p class="theme-transition" :class="darkMode ? 'text-gray-400' : 'text-gray-600'">Citizen ID: <?php echo htmlspecialchars($character['citizenid']); ?></p>
+                    <p class="text-sm theme-transition" :class="darkMode ? 'text-gray-500' : 'text-gray-500'">Last Updated: <?php echo date('M j, Y g:i A', strtotime($character['last_updated'])); ?></p>
                 </div>
             </div>
             <div class="flex space-x-3">
-                <a href="characters.php" class="bg-gray-700 hover:bg-gray-600 text-white px-4 py-2 rounded-lg transition-colors">
+                <a href="characters.php" class="px-4 py-2 rounded-lg transition-colors theme-transition"
+                   :class="darkMode ? 'bg-gray-700 hover:bg-gray-600 text-white' : 'bg-gray-200 hover:bg-gray-300 text-gray-900'">
                     <i class="fas fa-arrow-left mr-2"></i>Back
                 </a>
             </div>
         </div>
     </div>
     
-    <div class="grid grid-cols-1 lg:grid-cols-3 gap-8">
-        <!-- Character Information -->
-        <div class="lg:col-span-2 space-y-6">
+    <div class="grid grid-cols-1 lg:grid-cols-4 gap-8">
+        <!-- Main Content -->
+        <div class="lg:col-span-3 space-y-8">
             <!-- Basic Info -->
-            <div class="bg-gray-800 rounded-xl border border-gray-700 p-6">
-                <h2 class="text-xl font-bold text-white mb-4">Character Information</h2>
-                <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
-                    <div>
-                        <label class="text-gray-400 text-sm">First Name</label>
-                        <p class="text-white font-medium"><?php echo htmlspecialchars($charinfo['firstname']); ?></p>
+            <div class="rounded-xl border p-6 theme-transition" 
+                 :class="darkMode ? 'bg-gray-800 border-gray-700' : 'bg-white border-gray-200'">
+                <h2 class="text-xl font-bold mb-6 theme-transition" :class="darkMode ? 'text-white' : 'text-gray-900'">
+                    <i class="fas fa-id-card text-blue-400 mr-2"></i>Character Information
+                </h2>
+                <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
+                    <div class="space-y-4">
+                        <div>
+                            <label class="text-sm font-medium theme-transition" :class="darkMode ? 'text-gray-400' : 'text-gray-600'">First Name</label>
+                            <p class="text-lg font-semibold theme-transition" :class="darkMode ? 'text-white' : 'text-gray-900'"><?php echo htmlspecialchars($charinfo['firstname']); ?></p>
+                        </div>
+                        <div>
+                            <label class="text-sm font-medium theme-transition" :class="darkMode ? 'text-gray-400' : 'text-gray-600'">Date of Birth</label>
+                            <p class="text-lg font-semibold theme-transition" :class="darkMode ? 'text-white' : 'text-gray-900'"><?php echo htmlspecialchars($charinfo['birthdate']); ?></p>
+                        </div>
+                        <div>
+                            <label class="text-sm font-medium theme-transition" :class="darkMode ? 'text-gray-400' : 'text-gray-600'">Phone Number</label>
+                            <p class="text-lg font-semibold theme-transition" :class="darkMode ? 'text-white' : 'text-gray-900'"><?php echo htmlspecialchars($charinfo['phone']); ?></p>
+                        </div>
                     </div>
-                    <div>
-                        <label class="text-gray-400 text-sm">Last Name</label>
-                        <p class="text-white font-medium"><?php echo htmlspecialchars($charinfo['lastname']); ?></p>
-                    </div>
-                    <div>
-                        <label class="text-gray-400 text-sm">Date of Birth</label>
-                        <p class="text-white font-medium"><?php echo htmlspecialchars($charinfo['birthdate']); ?></p>
-                    </div>
-                    <div>
-                        <label class="text-gray-400 text-sm">Nationality</label>
-                        <p class="text-white font-medium"><?php echo htmlspecialchars($charinfo['nationality']); ?></p>
-                    </div>
-                    <div>
-                        <label class="text-gray-400 text-sm">Phone Number</label>
-                        <p class="text-white font-medium"><?php echo htmlspecialchars($charinfo['phone']); ?></p>
-                    </div>
-                    <div>
-                        <label class="text-gray-400 text-sm">Gender</label>
-                        <p class="text-white font-medium"><?php echo $charinfo['gender'] == 0 ? 'Male' : 'Female'; ?></p>
+                    <div class="space-y-4">
+                        <div>
+                            <label class="text-sm font-medium theme-transition" :class="darkMode ? 'text-gray-400' : 'text-gray-600'">Last Name</label>
+                            <p class="text-lg font-semibold theme-transition" :class="darkMode ? 'text-white' : 'text-gray-900'"><?php echo htmlspecialchars($charinfo['lastname']); ?></p>
+                        </div>
+                        <div>
+                            <label class="text-sm font-medium theme-transition" :class="darkMode ? 'text-gray-400' : 'text-gray-600'">Nationality</label>
+                            <p class="text-lg font-semibold theme-transition" :class="darkMode ? 'text-white' : 'text-gray-900'"><?php echo htmlspecialchars($charinfo['nationality']); ?></p>
+                        </div>
+                        <div>
+                            <label class="text-sm font-medium theme-transition" :class="darkMode ? 'text-gray-400' : 'text-gray-600'">Gender</label>
+                            <p class="text-lg font-semibold theme-transition" :class="darkMode ? 'text-white' : 'text-gray-900'"><?php echo $charinfo['gender'] == 0 ? 'Male' : 'Female'; ?></p>
+                        </div>
                     </div>
                 </div>
             </div>
             
             <!-- Job & Gang Info -->
-            <div class="bg-gray-800 rounded-xl border border-gray-700 p-6">
-                <h2 class="text-xl font-bold text-white mb-4">Employment & Affiliation</h2>
+            <div class="rounded-xl border p-6 theme-transition" 
+                 :class="darkMode ? 'bg-gray-800 border-gray-700' : 'bg-white border-gray-200'">
+                <h2 class="text-xl font-bold mb-6 theme-transition" :class="darkMode ? 'text-white' : 'text-gray-900'">
+                    <i class="fas fa-briefcase text-purple-400 mr-2"></i>Employment & Affiliation
+                </h2>
                 <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
-                    <div class="bg-gray-700 rounded-lg p-4">
-                        <h3 class="text-white font-semibold mb-3">
-                            <i class="fas fa-briefcase text-fivem-primary mr-2"></i>Job
+                    <div class="rounded-lg p-6 theme-transition" :class="darkMode ? 'bg-gray-700' : 'bg-gray-100'">
+                        <h3 class="font-semibold mb-4 theme-transition" :class="darkMode ? 'text-white' : 'text-gray-900'">
+                            <i class="fas fa-briefcase text-fivem-primary mr-2"></i>Job Information
                         </h3>
-                        <div class="space-y-2">
+                        <div class="space-y-3">
                             <div class="flex justify-between">
-                                <span class="text-gray-400">Position:</span>
-                                <span class="text-white"><?php echo htmlspecialchars($job['label']); ?></span>
+                                <span class="theme-transition" :class="darkMode ? 'text-gray-400' : 'text-gray-600'">Position:</span>
+                                <span class="font-medium theme-transition" :class="darkMode ? 'text-white' : 'text-gray-900'"><?php echo htmlspecialchars($job['label']); ?></span>
                             </div>
                             <div class="flex justify-between">
-                                <span class="text-gray-400">Grade:</span>
-                                <span class="text-white"><?php echo htmlspecialchars($job['grade']['name']); ?></span>
+                                <span class="theme-transition" :class="darkMode ? 'text-gray-400' : 'text-gray-600'">Grade:</span>
+                                <span class="font-medium theme-transition" :class="darkMode ? 'text-white' : 'text-gray-900'"><?php echo htmlspecialchars($job['grade']['name']); ?></span>
                             </div>
                             <div class="flex justify-between">
-                                <span class="text-gray-400">On Duty:</span>
-                                <span class="<?php echo $job['onduty'] ? 'text-green-400' : 'text-red-400'; ?>">
+                                <span class="theme-transition" :class="darkMode ? 'text-gray-400' : 'text-gray-600'">On Duty:</span>
+                                <span class="font-medium <?php echo $job['onduty'] ? 'text-green-500' : 'text-red-500'; ?>">
                                     <?php echo $job['onduty'] ? 'Yes' : 'No'; ?>
                                 </span>
+                            </div>
+                            <div class="flex justify-between">
+                                <span class="theme-transition" :class="darkMode ? 'text-gray-400' : 'text-gray-600'">Payment:</span>
+                                <span class="font-medium text-green-500">$<?php echo number_format($job['payment']); ?></span>
                             </div>
                         </div>
                     </div>
                     
-                    <div class="bg-gray-700 rounded-lg p-4">
-                        <h3 class="text-white font-semibold mb-3">
-                            <i class="fas fa-users text-red-400 mr-2"></i>Gang
+                    <div class="rounded-lg p-6 theme-transition" :class="darkMode ? 'bg-gray-700' : 'bg-gray-100'">
+                        <h3 class="font-semibold mb-4 theme-transition" :class="darkMode ? 'text-white' : 'text-gray-900'">
+                            <i class="fas fa-users text-red-400 mr-2"></i>Gang Affiliation
                         </h3>
-                        <div class="space-y-2">
+                        <div class="space-y-3">
                             <div class="flex justify-between">
-                                <span class="text-gray-400">Affiliation:</span>
-                                <span class="text-white"><?php echo htmlspecialchars($gang['label']); ?></span>
+                                <span class="theme-transition" :class="darkMode ? 'text-gray-400' : 'text-gray-600'">Gang:</span>
+                                <span class="font-medium theme-transition" :class="darkMode ? 'text-white' : 'text-gray-900'"><?php echo htmlspecialchars($gang['label']); ?></span>
                             </div>
                             <div class="flex justify-between">
-                                <span class="text-gray-400">Rank:</span>
-                                <span class="text-white"><?php echo htmlspecialchars($gang['grade']['name']); ?></span>
+                                <span class="theme-transition" :class="darkMode ? 'text-gray-400' : 'text-gray-600'">Rank:</span>
+                                <span class="font-medium theme-transition" :class="darkMode ? 'text-white' : 'text-gray-900'"><?php echo htmlspecialchars($gang['grade']['name']); ?></span>
                             </div>
                             <div class="flex justify-between">
-                                <span class="text-gray-400">Boss:</span>
-                                <span class="<?php echo $gang['isboss'] ? 'text-green-400' : 'text-gray-400'; ?>">
+                                <span class="theme-transition" :class="darkMode ? 'text-gray-400' : 'text-gray-600'">Boss:</span>
+                                <span class="font-medium <?php echo $gang['isboss'] ? 'text-green-500' : 'text-gray-500'; ?>">
                                     <?php echo $gang['isboss'] ? 'Yes' : 'No'; ?>
                                 </span>
                             </div>
@@ -152,95 +202,221 @@ include 'includes/navbar.php';
             </div>
             
             <!-- Vehicles -->
-            <div class="bg-gray-800 rounded-xl border border-gray-700 p-6">
-                <h2 class="text-xl font-bold text-white mb-4">
-                    <i class="fas fa-car text-blue-400 mr-2"></i>Vehicles
+            <div class="rounded-xl border p-6 theme-transition" 
+                 :class="darkMode ? 'bg-gray-800 border-gray-700' : 'bg-white border-gray-200'">
+                <h2 class="text-xl font-bold mb-6 theme-transition" :class="darkMode ? 'text-white' : 'text-gray-900'">
+                    <i class="fas fa-car text-blue-400 mr-2"></i>Vehicle Garage
+                    <span class="text-sm font-normal theme-transition ml-2" :class="darkMode ? 'text-gray-400' : 'text-gray-600'">(<?php echo count($vehicles); ?> vehicles)</span>
                 </h2>
+                
                 <?php if (empty($vehicles)): ?>
-                    <div class="text-center py-8">
-                        <i class="fas fa-car text-4xl text-gray-600 mb-4"></i>
-                        <p class="text-gray-400">No vehicles owned</p>
+                    <div class="text-center py-12">
+                        <div class="w-20 h-20 rounded-2xl flex items-center justify-center mx-auto mb-6 theme-transition" :class="darkMode ? 'bg-gray-700' : 'bg-gray-200'">
+                            <i class="fas fa-car text-3xl theme-transition" :class="darkMode ? 'text-gray-500' : 'text-gray-400'"></i>
+                        </div>
+                        <h3 class="text-xl font-bold mb-2 theme-transition" :class="darkMode ? 'text-white' : 'text-gray-900'">No Vehicles</h3>
+                        <p class="theme-transition" :class="darkMode ? 'text-gray-400' : 'text-gray-600'">This character doesn't own any vehicles</p>
                     </div>
                 <?php else: ?>
-                    <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
-                        <?php foreach ($vehicles as $vehicle): ?>
-                            <div class="bg-gray-700 rounded-lg p-4 border border-gray-600">
-                                <div class="flex justify-between items-start mb-3">
-                                    <div>
-                                        <h4 class="text-white font-semibold"><?php echo htmlspecialchars($vehicle['vehicle']); ?></h4>
-                                        <p class="text-gray-400 text-sm">Plate: <?php echo htmlspecialchars($vehicle['plate']); ?></p>
+                    <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
+                        <?php foreach ($vehicles as $vehicle): 
+                            $mods = json_decode($vehicle['mods'], true) ?? [];
+                            $vehicleImage = getVehicleImage($vehicle['vehicle']);
+                            $garageDisplay = getGarageDisplayName($vehicle['garage']);
+                        ?>
+                            <div class="group relative overflow-hidden rounded-2xl border transition-all duration-300 hover:shadow-2xl transform hover:-translate-y-2 theme-transition" 
+                                 :class="darkMode ? 'bg-gray-700 border-gray-600 hover:border-fivem-primary' : 'bg-gray-50 border-gray-200 hover:border-fivem-primary'">
+                                
+                                <!-- Vehicle Image -->
+                                <div class="relative h-48 overflow-hidden">
+                                    <img src="<?php echo $vehicleImage; ?>" 
+                                         alt="<?php echo htmlspecialchars($vehicle['vehicle']); ?>"
+                                         class="w-full h-full object-cover transition-transform duration-300 group-hover:scale-110">
+                                    
+                                    <!-- Status Badge -->
+                                    <div class="absolute top-3 right-3">
+                                        <span class="inline-flex items-center px-3 py-1 rounded-full text-xs font-bold shadow-lg <?php echo $vehicle['state'] == 1 ? 'bg-green-500 text-white' : 'bg-red-500 text-white'; ?>">
+                                            <div class="w-2 h-2 rounded-full mr-2 <?php echo $vehicle['state'] == 1 ? 'bg-green-200' : 'bg-red-200'; ?> animate-pulse"></div>
+                                            <?php echo $vehicle['state'] == 1 ? 'Available' : 'Impounded'; ?>
+                                        </span>
                                     </div>
-                                    <span class="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium <?php echo $vehicle['state'] == 1 ? 'bg-green-100 text-green-800' : 'bg-red-100 text-red-800'; ?>">
-                                        <?php echo $vehicle['state'] == 1 ? 'Available' : 'Impounded'; ?>
-                    </span>
-                </div>
-                <div class="grid grid-cols-3 gap-2 mt-3">
-                    <div class="text-center">
-                        <p class="text-gray-400 text-xs">Fuel</p>
-                        <p class="text-white font-bold"><?php echo $vehicle['fuel']; ?>%</p>
+                                    
+                                    <!-- Gradient Overlay -->
+                                    <div class="absolute inset-0 bg-gradient-to-t from-black/60 via-transparent to-transparent"></div>
+                                    
+                                    <!-- Vehicle Name Overlay -->
+                                    <div class="absolute bottom-3 left-3">
+                                        <h3 class="text-xl font-bold text-white"><?php echo htmlspecialchars(ucwords($vehicle['vehicle'])); ?></h3>
+                                        <p class="text-gray-200 text-sm font-medium">Plate: <?php echo htmlspecialchars($vehicle['plate']); ?></p>
+                                    </div>
+                                </div>
+                                
+                                <!-- Vehicle Details -->
+                                <div class="p-6">
+                                    <!-- Condition Bars -->
+                                    <div class="grid grid-cols-3 gap-4 mb-6">
+                                        <div class="text-center">
+                                            <div class="w-12 h-12 rounded-xl flex items-center justify-center mx-auto mb-2 bg-gradient-to-r from-blue-500 to-blue-600 shadow-lg">
+                                                <i class="fas fa-gas-pump text-white"></i>
+                                            </div>
+                                            <p class="text-xs font-medium theme-transition" :class="darkMode ? 'text-gray-400' : 'text-gray-600'">Fuel</p>
+                                            <div class="w-full h-2 rounded-full mt-1 theme-transition" :class="darkMode ? 'bg-gray-600' : 'bg-gray-300'">
+                                                <div class="bg-gradient-to-r from-blue-500 to-blue-400 h-2 rounded-full transition-all duration-500" 
+                                                     style="width: <?php echo $vehicle['fuel']; ?>%"></div>
+                                            </div>
+                                            <p class="text-sm font-bold mt-1 theme-transition" :class="darkMode ? 'text-white' : 'text-gray-900'"><?php echo $vehicle['fuel']; ?>%</p>
+                                        </div>
+                                        
+                                        <div class="text-center">
+                                            <div class="w-12 h-12 rounded-xl flex items-center justify-center mx-auto mb-2 bg-gradient-to-r from-green-500 to-green-600 shadow-lg">
+                                                <i class="fas fa-cog text-white"></i>
+                                            </div>
+                                            <p class="text-xs font-medium theme-transition" :class="darkMode ? 'text-gray-400' : 'text-gray-600'">Engine</p>
+                                            <div class="w-full h-2 rounded-full mt-1 theme-transition" :class="darkMode ? 'bg-gray-600' : 'bg-gray-300'">
+                                                <div class="bg-gradient-to-r from-green-500 to-green-400 h-2 rounded-full transition-all duration-500" 
+                                                     style="width: <?php echo round($vehicle['engine']/10); ?>%"></div>
+                                            </div>
+                                            <p class="text-sm font-bold mt-1 theme-transition" :class="darkMode ? 'text-white' : 'text-gray-900'"><?php echo round($vehicle['engine']/10); ?>%</p>
+                                        </div>
+                                        
+                                        <div class="text-center">
+                                            <div class="w-12 h-12 rounded-xl flex items-center justify-center mx-auto mb-2 bg-gradient-to-r from-yellow-500 to-yellow-600 shadow-lg">
+                                                <i class="fas fa-car-crash text-white"></i>
+                                            </div>
+                                            <p class="text-xs font-medium theme-transition" :class="darkMode ? 'text-gray-400' : 'text-gray-600'">Body</p>
+                                            <div class="w-full h-2 rounded-full mt-1 theme-transition" :class="darkMode ? 'bg-gray-600' : 'bg-gray-300'">
+                                                <div class="bg-gradient-to-r from-yellow-500 to-yellow-400 h-2 rounded-full transition-all duration-500" 
+                                                     style="width: <?php echo round($vehicle['body']/10); ?>%"></div>
+                                            </div>
+                                            <p class="text-sm font-bold mt-1 theme-transition" :class="darkMode ? 'text-white' : 'text-gray-900'"><?php echo round($vehicle['body']/10); ?>%</p>
+                                        </div>
+                                    </div>
+                                    
+                                    <!-- Parking Location -->
+                                    <div class="rounded-lg p-4 mb-4 theme-transition" :class="darkMode ? 'bg-gray-800 border border-gray-600' : 'bg-gray-200 border border-gray-300'">
+                                        <div class="flex items-center">
+                                            <div class="w-10 h-10 bg-gradient-to-r from-purple-500 to-purple-600 rounded-lg flex items-center justify-center mr-3 shadow-md">
+                                                <i class="fas fa-map-marker-alt text-white"></i>
+                                            </div>
+                                            <div>
+                                                <p class="text-sm font-medium theme-transition" :class="darkMode ? 'text-gray-400' : 'text-gray-600'">Parked at</p>
+                                                <p class="font-semibold theme-transition" :class="darkMode ? 'text-white' : 'text-gray-900'"><?php echo htmlspecialchars($garageDisplay); ?></p>
+                                            </div>
+                                        </div>
+                                    </div>
+                                    
+                                    <!-- Vehicle Actions -->
+                                    <div class="flex space-x-2">
+                                        <?php if ($vehicle['state'] == 1): ?>
+                                            <button onclick="spawnVehicle('<?php echo $vehicle['plate']; ?>')" 
+                                                    class="flex-1 bg-gradient-to-r from-green-600 to-green-700 hover:from-green-700 hover:to-green-800 text-white py-3 px-4 rounded-lg font-semibold transition-all duration-200 transform hover:scale-105 shadow-lg">
+                                                <i class="fas fa-play mr-2"></i>Spawn
+                                            </button>
+                                            <button onclick="despawnVehicle('<?php echo $vehicle['plate']; ?>')" 
+                                                    class="flex-1 bg-gradient-to-r from-yellow-600 to-yellow-700 hover:from-yellow-700 hover:to-yellow-800 text-white py-3 px-4 rounded-lg font-semibold transition-all duration-200 transform hover:scale-105 shadow-lg">
+                                                <i class="fas fa-stop mr-2"></i>Store
+                                            </button>
+                                        <?php else: ?>
+                                            <button onclick="unimpoundVehicle('<?php echo $vehicle['plate']; ?>', <?php echo $vehicle['depotprice']; ?>)" 
+                                                    class="w-full bg-gradient-to-r from-blue-600 to-blue-700 hover:from-blue-700 hover:to-blue-800 text-white py-3 px-4 rounded-lg font-semibold transition-all duration-200 transform hover:scale-105 shadow-lg">
+                                                <i class="fas fa-wrench mr-2"></i>Unimpound ($<?php echo number_format($vehicle['depotprice']); ?>)
+                                            </button>
+                                        <?php endif; ?>
+                                    </div>
+                                    
+                                    <!-- Additional Info -->
+                                    <div class="mt-4 pt-4 border-t theme-transition" :class="darkMode ? 'border-gray-600' : 'border-gray-300'">
+                                        <div class="flex justify-between text-sm">
+                                            <span class="theme-transition" :class="darkMode ? 'text-gray-400' : 'text-gray-600'">Mileage:</span>
+                                            <span class="font-medium theme-transition" :class="darkMode ? 'text-white' : 'text-gray-900'"><?php echo number_format($vehicle['drivingdistance'] ?? 0); ?> km</span>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                        <?php endforeach; ?>
                     </div>
-                    <div class="text-center">
-                        <p class="text-gray-400 text-xs">Engine</p>
-                        <p class="text-white font-bold"><?php echo round($vehicle['engine']/10); ?>%</p>
-                    </div>
-                    <div class="text-center">
-                        <p class="text-gray-400 text-xs">Body</p>
-                        <p class="text-white font-bold"><?php echo round($vehicle['body']/10); ?>%</p>
-                    </div>
-                </div>
-            </div>
-        <?php endforeach; ?>
-    </div>
-<?php endif; ?>
+                <?php endif; ?>
             </div>
             
             <!-- Inventory -->
-            <div class="bg-gray-800 rounded-xl border border-gray-700 p-6">
-                <h2 class="text-xl font-bold text-white mb-4">
-                    <i class="fas fa-boxes text-green-400 mr-2"></i>Inventory
+            <div class="rounded-xl border p-6 theme-transition" 
+                 :class="darkMode ? 'bg-gray-800 border-gray-700' : 'bg-white border-gray-200'">
+                <h2 class="text-xl font-bold mb-6 theme-transition" :class="darkMode ? 'text-white' : 'text-gray-900'">
+                    <i class="fas fa-boxes text-green-400 mr-2"></i>Character Inventory
+                    <span class="text-sm font-normal theme-transition ml-2" :class="darkMode ? 'text-gray-400' : 'text-gray-600'">(<?php echo count($inventory); ?> items)</span>
                 </h2>
+                
                 <?php if (empty($inventory)): ?>
-                    <div class="text-center py-8">
-                        <i class="fas fa-box-open text-4xl text-gray-600 mb-4"></i>
-                        <p class="text-gray-400">No items in inventory</p>
+                    <div class="text-center py-12">
+                        <div class="w-20 h-20 rounded-2xl flex items-center justify-center mx-auto mb-6 theme-transition" :class="darkMode ? 'bg-gray-700' : 'bg-gray-200'">
+                            <i class="fas fa-box-open text-3xl theme-transition" :class="darkMode ? 'text-gray-500' : 'text-gray-400'"></i>
+                        </div>
+                        <h3 class="text-xl font-bold mb-2 theme-transition" :class="darkMode ? 'text-white' : 'text-gray-900'">Empty Inventory</h3>
+                        <p class="theme-transition" :class="darkMode ? 'text-gray-400' : 'text-gray-600'">No items found in character inventory</p>
                     </div>
                 <?php else: ?>
-                    <div class="grid grid-cols-2 md:grid-cols-3 gap-3">
+                    <div class="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-6 gap-3">
                         <?php foreach ($inventory as $item): ?>
-                            <div class="bg-gray-700 rounded-lg p-3 border border-gray-600 hover:border-gray-500 transition-all">
-                                <div class="flex items-center justify-between">
-                                    <div class="flex items-center">
-                                        <?php 
-                                        $item_image_path = "assets/items/" . strtolower($item['name']) . ".png";
-                                        $item_image_exists = file_exists($item_image_path);
-                                        ?>
-                                        
-                                        <div class="w-8 h-8 mr-2 flex-shrink-0">
-                                            <?php if ($item_image_exists): ?>
-                                                <img src="<?php echo $item_image_path; ?>" 
-                                                     alt="<?php echo htmlspecialchars($item['name']); ?>"
-                                                     class="w-full h-full object-contain rounded"
-                                                     onerror="this.style.display='none'; this.nextElementSibling.style.display='flex';">
-                                                <div class="w-full h-full bg-fivem-primary rounded flex items-center justify-center" style="display: none;">
-                                                    <i class="fas fa-cube text-white text-xs"></i>
-                                                </div>
-                                            <?php else: ?>
-                                                <div class="w-full h-full bg-fivem-primary rounded flex items-center justify-center">
-                                                    <i class="fas fa-cube text-white text-xs"></i>
-                                                </div>
-                                            <?php endif; ?>
+                            <div class="group relative rounded-lg p-3 border transition-all duration-300 hover:shadow-lg theme-transition" 
+                                 :class="darkMode ? 'bg-gray-700 border-gray-600 hover:border-fivem-primary' : 'bg-gray-100 border-gray-300 hover:border-fivem-primary'">
+                                
+                                <!-- Item Image/Icon -->
+                                <div class="w-12 h-12 mx-auto mb-2 relative">
+                                    <?php 
+                                    $item_image_path = "assets/items/" . strtolower($item['name']) . ".png";
+                                    $item_image_exists = file_exists($item_image_path);
+                                    ?>
+                                    
+                                    <?php if ($item_image_exists): ?>
+                                        <img src="<?php echo $item_image_path; ?>" 
+                                             alt="<?php echo htmlspecialchars($item['name']); ?>"
+                                             class="w-full h-full object-contain rounded-lg shadow-sm transition-transform duration-300 group-hover:scale-110"
+                                             onerror="this.style.display='none'; this.nextElementSibling.style.display='flex';">
+                                        <div class="w-full h-full bg-gradient-to-r from-fivem-primary to-yellow-500 rounded-lg flex items-center justify-center shadow-md" style="display: none;">
+                                            <i class="fas fa-cube text-white"></i>
                                         </div>
-                                        
-                                        <div class="min-w-0 flex-1">
-                                            <h4 class="text-white font-medium text-sm truncate"><?php echo htmlspecialchars(ucwords(str_replace('_', ' ', $item['name']))); ?></h4>
-                                            <p class="text-gray-400 text-xs">Slot: <?php echo $item['slot']; ?></p>
+                                    <?php else: ?>
+                                        <div class="w-full h-full bg-gradient-to-r from-fivem-primary to-yellow-500 rounded-lg flex items-center justify-center shadow-md">
+                                            <i class="fas fa-cube text-white"></i>
+                                        </div>
+                                    <?php endif; ?>
+                                    
+                                    <!-- Amount Badge -->
+                                    <span class="absolute -top-1 -right-1 bg-fivem-primary text-white text-xs px-2 py-1 rounded-full font-bold shadow-lg border-2 border-white">
+                                        <?php echo $item['amount']; ?>
+                                    </span>
+                                </div>
+                                
+                                <!-- Item Name -->
+                                <p class="text-xs font-medium text-center truncate theme-transition" 
+                                   :class="darkMode ? 'text-white' : 'text-gray-900'" 
+                                   title="<?php echo htmlspecialchars(ucwords(str_replace('_', ' ', $item['name']))); ?>">
+                                    <?php echo htmlspecialchars(ucwords(str_replace('_', ' ', $item['name']))); ?>
+                                </p>
+                                
+                                <!-- Slot Number -->
+                                <div class="absolute top-1 left-1 text-xs font-bold px-1 py-0.5 rounded theme-transition" 
+                                     :class="darkMode ? 'bg-gray-800 text-gray-400' : 'bg-white text-gray-600'"><?php echo $item['slot']; ?></div>
+                                
+                                <!-- Hover Tooltip -->
+                                <div class="absolute bottom-full left-1/2 transform -translate-x-1/2 mb-2 px-3 py-2 text-xs rounded-lg opacity-0 group-hover:opacity-100 transition-all duration-200 pointer-events-none z-20 whitespace-nowrap theme-transition border shadow-lg"
+                                     :class="darkMode ? 'bg-gray-900 text-white border-gray-700' : 'bg-white text-gray-900 border-gray-200'">
+                                    <div class="font-semibold mb-1"><?php echo htmlspecialchars(ucwords(str_replace('_', ' ', $item['name']))); ?></div>
+                                    <div class="space-y-1">
+                                        <div class="theme-transition" :class="darkMode ? 'text-gray-400' : 'text-gray-600'">
+                                            <i class="fas fa-hashtag mr-1"></i>Amount: <?php echo $item['amount']; ?>
+                                        </div>
+                                        <div class="theme-transition" :class="darkMode ? 'text-gray-400' : 'text-gray-600'">
+                                            <i class="fas fa-tag mr-1"></i>Type: <?php echo htmlspecialchars($item['type']); ?>
+                                        </div>
+                                        <div class="theme-transition" :class="darkMode ? 'text-gray-400' : 'text-gray-600'">
+                                            <i class="fas fa-layer-group mr-1"></i>Slot: <?php echo $item['slot']; ?>
                                         </div>
                                     </div>
-                                    <div class="text-right">
-                                        <span class="bg-fivem-primary text-white px-2 py-1 rounded text-xs font-bold">
-                                            <?php echo $item['amount']; ?>x
-                                        </span>
-                                    </div>
+                                    
+                                    <!-- Tooltip Arrow -->
+                                    <div class="absolute top-full left-1/2 transform -translate-x-1/2 w-0 h-0 border-l-4 border-r-4 border-t-4 border-transparent theme-transition"
+                                         :class="darkMode ? 'border-t-gray-900' : 'border-t-white'"></div>
                                 </div>
                             </div>
                         <?php endforeach; ?>
@@ -251,114 +427,179 @@ include 'includes/navbar.php';
         
         <!-- Sidebar -->
         <div class="space-y-6">
-            <!-- Status -->
-            <div class="bg-gray-800 rounded-xl border border-gray-700 p-6">
-                <h3 class="text-lg font-bold text-white mb-4">Character Status</h3>
+            <!-- Character Status -->
+            <div class="rounded-xl border p-6 theme-transition" 
+                 :class="darkMode ? 'bg-gray-800 border-gray-700' : 'bg-white border-gray-200'">
+                <h3 class="text-lg font-bold mb-6 theme-transition" :class="darkMode ? 'text-white' : 'text-gray-900'">
+                    <i class="fas fa-heart text-red-400 mr-2"></i>Character Status
+                </h3>
+                <div class="space-y-4">
+                    <div>
+                        <div class="flex justify-between items-center mb-2">
+                            <span class="text-sm font-medium theme-transition" :class="darkMode ? 'text-gray-400' : 'text-gray-600'">Health</span>
+                            <span class="text-sm font-bold theme-transition" :class="darkMode ? 'text-white' : 'text-gray-900'"><?php echo $metadata['isdead'] ? '0' : '100'; ?>%</span>
+                        </div>
+                        <div class="w-full h-3 rounded-full theme-transition" :class="darkMode ? 'bg-gray-700' : 'bg-gray-300'">
+                            <div class="bg-gradient-to-r from-red-500 to-red-400 h-3 rounded-full transition-all duration-500" 
+                                 style="width: <?php echo $metadata['isdead'] ? '0' : '100'; ?>%"></div>
+                        </div>
+                    </div>
+                    
+                    <div>
+                        <div class="flex justify-between items-center mb-2">
+                            <span class="text-sm font-medium theme-transition" :class="darkMode ? 'text-gray-400' : 'text-gray-600'">Hunger</span>
+                            <span class="text-sm font-bold theme-transition" :class="darkMode ? 'text-white' : 'text-gray-900'"><?php echo $metadata['hunger']; ?>%</span>
+                        </div>
+                        <div class="w-full h-3 rounded-full theme-transition" :class="darkMode ? 'bg-gray-700' : 'bg-gray-300'">
+                            <div class="bg-gradient-to-r from-orange-500 to-orange-400 h-3 rounded-full transition-all duration-500" 
+                                 style="width: <?php echo $metadata['hunger']; ?>%"></div>
+                        </div>
+                    </div>
+                    
+                    <div>
+                        <div class="flex justify-between items-center mb-2">
+                            <span class="text-sm font-medium theme-transition" :class="darkMode ? 'text-gray-400' : 'text-gray-600'">Thirst</span>
+                            <span class="text-sm font-bold theme-transition" :class="darkMode ? 'text-white' : 'text-gray-900'"><?php echo $metadata['thirst']; ?>%</span>
+                        </div>
+                        <div class="w-full h-3 rounded-full theme-transition" :class="darkMode ? 'bg-gray-700' : 'bg-gray-300'">
+                            <div class="bg-gradient-to-r from-blue-500 to-blue-400 h-3 rounded-full transition-all duration-500" 
+                                 style="width: <?php echo $metadata['thirst']; ?>%"></div>
+                        </div>
+                    </div>
+                    
+                    <div>
+                        <div class="flex justify-between items-center mb-2">
+                            <span class="text-sm font-medium theme-transition" :class="darkMode ? 'text-gray-400' : 'text-gray-600'">Stress</span>
+                            <span class="text-sm font-bold theme-transition" :class="darkMode ? 'text-white' : 'text-gray-900'"><?php echo $metadata['stress']; ?>%</span>
+                        </div>
+                        <div class="w-full h-3 rounded-full theme-transition" :class="darkMode ? 'bg-gray-700' : 'bg-gray-300'">
+                            <div class="bg-gradient-to-r from-purple-500 to-purple-400 h-3 rounded-full transition-all duration-500" 
+                                 style="width: <?php echo $metadata['stress']; ?>%"></div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+            
+            <!-- Financial Overview -->
+            <div class="rounded-xl border p-6 theme-transition" 
+                 :class="darkMode ? 'bg-gray-800 border-gray-700' : 'bg-white border-gray-200'">
+                <h3 class="text-lg font-bold mb-6 theme-transition" :class="darkMode ? 'text-white' : 'text-gray-900'">
+                    <i class="fas fa-wallet text-green-400 mr-2"></i>Financial Status
+                </h3>
+                <div class="space-y-4">
+                    <div class="flex justify-between items-center p-4 rounded-lg theme-transition" :class="darkMode ? 'bg-gray-700' : 'bg-gray-100'">
+                        <div class="flex items-center">
+                            <div class="w-10 h-10 bg-gradient-to-r from-green-500 to-green-600 rounded-lg flex items-center justify-center mr-3 shadow-md">
+                                <i class="fas fa-money-bill-wave text-white"></i>
+                            </div>
+                            <span class="font-medium theme-transition" :class="darkMode ? 'text-gray-300' : 'text-gray-700'">Cash</span>
+                        </div>
+                        <span class="text-xl font-bold text-green-500">$<?php echo number_format($money['cash']); ?></span>
+                    </div>
+                    
+                    <div class="flex justify-between items-center p-4 rounded-lg theme-transition" :class="darkMode ? 'bg-gray-700' : 'bg-gray-100'">
+                        <div class="flex items-center">
+                            <div class="w-10 h-10 bg-gradient-to-r from-blue-500 to-blue-600 rounded-lg flex items-center justify-center mr-3 shadow-md">
+                                <i class="fas fa-university text-white"></i>
+                            </div>
+                            <span class="font-medium theme-transition" :class="darkMode ? 'text-gray-300' : 'text-gray-700'">Bank</span>
+                        </div>
+                        <span class="text-xl font-bold text-blue-500">$<?php echo number_format($money['bank']); ?></span>
+                    </div>
+                    
+                    <div class="flex justify-between items-center p-4 rounded-lg theme-transition" :class="darkMode ? 'bg-gray-700' : 'bg-gray-100'">
+                        <div class="flex items-center">
+                            <div class="w-10 h-10 bg-gradient-to-r from-yellow-500 to-yellow-600 rounded-lg flex items-center justify-center mr-3 shadow-md">
+                                <i class="fas fa-coins text-white"></i>
+                            </div>
+                            <span class="font-medium theme-transition" :class="darkMode ? 'text-gray-300' : 'text-gray-700'">Crypto</span>
+                        </div>
+                        <span class="text-xl font-bold text-yellow-500"><?php echo number_format($money['crypto']); ?></span>
+                    </div>
+                    
+                    <div class="border-t pt-4 theme-transition" :class="darkMode ? 'border-gray-600' : 'border-gray-300'">
+                        <div class="flex justify-between items-center">
+                            <span class="font-semibold theme-transition" :class="darkMode ? 'text-white' : 'text-gray-900'">Total Net Worth</span>
+                            <span class="text-2xl font-bold text-fivem-primary">$<?php echo number_format($money['cash'] + $money['bank']); ?></span>
+                        </div>
+                    </div>
+                </div>
+            </div>
+            
+            <!-- Last Known Location -->
+            <div class="rounded-xl border p-6 theme-transition" 
+                 :class="darkMode ? 'bg-gray-800 border-gray-700' : 'bg-white border-gray-200'">
+                <h3 class="text-lg font-bold mb-6 theme-transition" :class="darkMode ? 'text-white' : 'text-gray-900'">
+                    <i class="fas fa-map-marker-alt text-red-400 mr-2"></i>Last Known Location
+                </h3>
+                <div class="text-center">
+                    <div class="w-16 h-16 bg-gradient-to-r from-red-500 to-red-600 rounded-2xl flex items-center justify-center mx-auto mb-4 shadow-lg">
+                        <i class="fas fa-crosshairs text-white text-xl"></i>
+                    </div>
+                    <div class="space-y-2">
+                        <div class="rounded-lg p-3 theme-transition" :class="darkMode ? 'bg-gray-700' : 'bg-gray-100'">
+                            <p class="text-sm font-medium theme-transition" :class="darkMode ? 'text-gray-400' : 'text-gray-600'">Coordinates</p>
+                            <div class="space-y-1 mt-2">
+                                <p class="font-mono text-sm theme-transition" :class="darkMode ? 'text-white' : 'text-gray-900'">X: <?php echo round($position['x'], 2); ?></p>
+                                <p class="font-mono text-sm theme-transition" :class="darkMode ? 'text-white' : 'text-gray-900'">Y: <?php echo round($position['y'], 2); ?></p>
+                                <p class="font-mono text-sm theme-transition" :class="darkMode ? 'text-white' : 'text-gray-900'">Z: <?php echo round($position['z'], 2); ?></p>
+                            </div>
+                        </div>
+                        <a href="map.php?character=<?php echo $character['citizenid']; ?>" 
+                           class="inline-flex items-center px-4 py-2 bg-gradient-to-r from-red-600 to-red-700 hover:from-red-700 hover:to-red-800 text-white text-sm font-semibold rounded-lg transition-all duration-200 transform hover:scale-105 shadow-lg">
+                            <i class="fas fa-map mr-2"></i>View on Map
+                        </a>
+                    </div>
+                </div>
+            </div>
+            
+            <!-- Additional Info -->
+            <div class="rounded-xl border p-6 theme-transition" 
+                 :class="darkMode ? 'bg-gray-800 border-gray-700' : 'bg-white border-gray-200'">
+                <h3 class="text-lg font-bold mb-6 theme-transition" :class="darkMode ? 'text-white' : 'text-gray-900'">
+                    <i class="fas fa-info-circle text-blue-400 mr-2"></i>Additional Info
+                </h3>
                 <div class="space-y-3">
                     <div class="flex justify-between">
-                        <span class="text-gray-400">Health:</span>
-                        <div class="flex items-center">
-                            <div class="w-20 bg-gray-700 rounded-full h-2 mr-2">
-                                <div class="bg-red-500 h-2 rounded-full" style="width: <?php echo $metadata['isdead'] ? '0' : '100'; ?>%"></div>
-                            </div>
-                            <span class="text-white text-sm"><?php echo $metadata['isdead'] ? 'Dead' : 'Alive'; ?></span>
-                        </div>
+                        <span class="text-sm theme-transition" :class="darkMode ? 'text-gray-400' : 'text-gray-600'">Blood Type:</span>
+                        <span class="font-medium theme-transition" :class="darkMode ? 'text-white' : 'text-gray-900'"><?php echo htmlspecialchars($metadata['bloodtype']); ?></span>
                     </div>
                     <div class="flex justify-between">
-                        <span class="text-gray-400">Hunger:</span>
-                        <div class="flex items-center">
-                            <div class="w-20 bg-gray-700 rounded-full h-2 mr-2">
-                                <div class="bg-orange-500 h-2 rounded-full" style="width: <?php echo $metadata['hunger']; ?>%"></div>
-                            </div>
-                            <span class="text-white text-sm"><?php echo $metadata['hunger']; ?>%</span>
-                        </div>
+                        <span class="text-sm theme-transition" :class="darkMode ? 'text-gray-400' : 'text-gray-600'">Callsign:</span>
+                        <span class="font-medium theme-transition" :class="darkMode ? 'text-white' : 'text-gray-900'"><?php echo htmlspecialchars($metadata['callsign']); ?></span>
                     </div>
                     <div class="flex justify-between">
-                        <span class="text-gray-400">Thirst:</span>
-                        <div class="flex items-center">
-                            <div class="w-20 bg-gray-700 rounded-full h-2 mr-2">
-                                <div class="bg-blue-500 h-2 rounded-full" style="width: <?php echo $metadata['thirst']; ?>%"></div>
-                            </div>
-                            <span class="text-white text-sm"><?php echo $metadata['thirst']; ?>%</span>
-                        </div>
+                        <span class="text-sm theme-transition" :class="darkMode ? 'text-gray-400' : 'text-gray-600'">Wallet ID:</span>
+                        <span class="font-mono text-sm theme-transition" :class="darkMode ? 'text-white' : 'text-gray-900'"><?php echo htmlspecialchars($metadata['walletid']); ?></span>
                     </div>
                     <div class="flex justify-between">
-                        <span class="text-gray-400">Stress:</span>
-                        <div class="flex items-center">
-                            <div class="w-20 bg-gray-700 rounded-full h-2 mr-2">
-                                <div class="bg-purple-500 h-2 rounded-full" style="width: <?php echo $metadata['stress']; ?>%"></div>
-                            </div>
-                            <span class="text-white text-sm"><?php echo $metadata['stress']; ?>%</span>
-                        </div>
-                    </div>
-                </div>
-            </div>
-            
-            <!-- Money -->
-            <div class="bg-gray-800 rounded-xl border border-gray-700 p-6">
-                <h3 class="text-lg font-bold text-white mb-4">Financial Overview</h3>
-                <div class="space-y-4">
-                    <div class="flex justify-between items-center">
-                        <div class="flex items-center">
-                            <i class="fas fa-money-bill-wave text-green-400 mr-3"></i>
-                            <span class="text-gray-400">Cash</span>
-                        </div>
-                        <span class="text-green-400 font-bold">$<?php echo number_format($money['cash']); ?></span>
-                    </div>
-                    <div class="flex justify-between items-center">
-                        <div class="flex items-center">
-                            <i class="fas fa-university text-blue-400 mr-3"></i>
-                            <span class="text-gray-400">Bank</span>
-                        </div>
-                        <span class="text-blue-400 font-bold">$<?php echo number_format($money['bank']); ?></span>
-                    </div>
-                    <div class="flex justify-between items-center">
-                        <div class="flex items-center">
-                            <i class="fas fa-coins text-yellow-400 mr-3"></i>
-                            <span class="text-gray-400">Crypto</span>
-                        </div>
-                        <span class="text-yellow-400 font-bold"><?php echo number_format($money['crypto']); ?></span>
-                    </div>
-                    <hr class="border-gray-700">
-                    <div class="flex justify-between items-center">
-                        <span class="text-white font-semibold">Total Worth</span>
-                        <span class="text-fivem-primary font-bold text-lg">$<?php echo number_format($money['cash'] + $money['bank']); ?></span>
-                    </div>
-                </div>
-            </div>
-            
-            <!-- Location -->
-            <div class="bg-gray-800 rounded-xl border border-gray-700 p-6">
-                <h3 class="text-lg font-bold text-white mb-4">Last Known Location</h3>
-                <div class="bg-gray-700 rounded-lg p-4 text-center">
-                    <i class="fas fa-map-marker-alt text-red-400 text-2xl mb-3"></i>
-                    <div class="space-y-1">
-                        <p class="text-white font-medium">Coordinates</p>
-                        <p class="text-gray-400 text-sm">X: <?php echo round($position['x'], 2); ?></p>
-                        <p class="text-gray-400 text-sm">Y: <?php echo round($position['y'], 2); ?></p>
-                        <p class="text-gray-400 text-sm">Z: <?php echo round($position['z'], 2); ?></p>
+                        <span class="text-sm theme-transition" :class="darkMode ? 'text-gray-400' : 'text-gray-600'">Fingerprint:</span>
+                        <span class="font-mono text-sm theme-transition" :class="darkMode ? 'text-white' : 'text-gray-900'"><?php echo htmlspecialchars($metadata['fingerprint']); ?></span>
                     </div>
                 </div>
             </div>
         </div>
     </div>
 </div>
-            
-            <!-- Location -->
-            <div class="bg-gray-800 rounded-xl border border-gray-700 p-6">
-                <h3 class="text-lg font-bold text-white mb-4">Last Known Location</h3>
-                <div class="bg-gray-700 rounded-lg p-4 text-center">
-                    <i class="fas fa-map-marker-alt text-red-400 text-2xl mb-3"></i>
-                    <div class="space-y-1">
-                        <p class="text-white font-medium">Coordinates</p>
-                        <p class="text-gray-400 text-sm">X: <?php echo round($position['x'], 2); ?></p>
-                        <p class="text-gray-400 text-sm">Y: <?php echo round($position['y'], 2); ?></p>
-                        <p class="text-gray-400 text-sm">Z: <?php echo round($position['z'], 2); ?></p>
-                    </div>
-                </div>
-            </div>
-        </div>
-    </div>
-</div>
+
+<script>
+// Vehicle action functions
+function spawnVehicle(plate) {
+    showNotification('Vehicle Spawn', `Spawning vehicle with plate ${plate}...`, 'info');
+    // In real implementation, this would call your FiveM server API
+}
+
+function despawnVehicle(plate) {
+    showNotification('Vehicle Storage', `Storing vehicle with plate ${plate}...`, 'info');
+    // In real implementation, this would call your FiveM server API
+}
+
+function unimpoundVehicle(plate, cost) {
+    if (confirm(`Are you sure you want to unimpound vehicle ${plate} for $${cost.toLocaleString()}?`)) {
+        showNotification('Vehicle Unimpound', `Processing unimpound for ${plate}...`, 'warning');
+        // In real implementation, this would call your FiveM server API
+    }
+}
+</script>
 
 <?php include 'includes/footer.php'; ?>
