@@ -298,6 +298,40 @@ include 'includes/navbar.php';
 </div>
 
 <script>
+// File upload handling
+function handleFileSelect(input) {
+    const file = input.files[0];
+    const preview = document.getElementById('file-preview');
+    const fileName = document.getElementById('file-name');
+    const fileSize = document.getElementById('file-size');
+    
+    if (file) {
+        // Validate file size (5MB)
+        if (file.size > 5 * 1024 * 1024) {
+            alert('File size must be less than 5MB');
+            input.value = '';
+            return;
+        }
+        
+        // Validate file type
+        const allowedTypes = ['image/jpeg', 'image/jpg', 'image/png', 'image/gif', 'application/pdf', 'text/plain'];
+        if (!allowedTypes.includes(file.type)) {
+            alert('Invalid file type. Please upload images, PDFs, or text files only.');
+            input.value = '';
+            return;
+        }
+        
+        fileName.textContent = file.name;
+        fileSize.textContent = `(${(file.size / 1024 / 1024).toFixed(2)} MB)`;
+        preview.classList.remove('hidden');
+    }
+}
+
+function clearFile() {
+    document.getElementById('attachment').value = '';
+    document.getElementById('file-preview').classList.add('hidden');
+}
+
 // Character counter for message textarea
 document.addEventListener('DOMContentLoaded', function() {
     const messageTextarea = document.getElementById('message');

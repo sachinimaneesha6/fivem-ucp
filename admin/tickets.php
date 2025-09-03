@@ -225,6 +225,32 @@ include '../includes/header.php';
                             <div class="bg-gray-800 rounded p-3">
                                 <h4 class="text-white font-semibold mb-2">Message:</h4>
                                 <p class="text-gray-300"><?php echo nl2br(htmlspecialchars($ticket['message'])); ?></p>
+                                
+                                <?php if (!empty($ticket['attachment_path'])): ?>
+                                    <div class="mt-4 p-3 bg-gray-700 rounded-lg">
+                                        <h5 class="text-white font-medium mb-2">
+                                            <i class="fas fa-paperclip mr-2"></i>Attachment
+                                        </h5>
+                                        <div class="flex items-center">
+                                            <?php 
+                                            $file_ext = strtolower(pathinfo($ticket['attachment_path'], PATHINFO_EXTENSION));
+                                            $file_name = basename($ticket['attachment_path']);
+                                            $icon_class = match($file_ext) {
+                                                'jpg', 'jpeg', 'png', 'gif' => 'fa-image text-green-400',
+                                                'pdf' => 'fa-file-pdf text-red-400',
+                                                'txt', 'log' => 'fa-file-alt text-blue-400',
+                                                default => 'fa-file text-gray-400'
+                                            };
+                                            ?>
+                                            <i class="fas <?php echo $icon_class; ?> mr-2"></i>
+                                            <a href="../<?php echo htmlspecialchars($ticket['attachment_path']); ?>" 
+                                               target="_blank" 
+                                               class="text-fivem-primary hover:text-yellow-500 transition-colors font-medium">
+                                                <?php echo htmlspecialchars($file_name); ?>
+                                            </a>
+                                        </div>
+                                    </div>
+                                <?php endif; ?>
                             </div>
                             
                             <!-- Admin Response -->
