@@ -806,7 +806,7 @@ include '../includes/header.php';
                                     <?php endif; ?>
                                 </div>
                             </td>
-                            <td class="px-6 py-4 whitespace-nowrap">
+                            <td class="px-6 py-4 whitespace-nowrap text-gray-300">
                                 <div class="flex space-x-2">
                                     <button onclick="openPlayerModal(<?php echo $player['id']; ?>)" 
                                             class="text-blue-400 hover:text-blue-300 transition-colors p-2 hover:bg-blue-500 hover:bg-opacity-20 rounded-lg" 
