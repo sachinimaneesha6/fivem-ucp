@@ -830,7 +830,8 @@ include '../includes/header.php';
                                     <?php else: ?>
                                         <button onclick="openBanModal(<?php echo $player['id']; ?>, '<?php echo htmlspecialchars($player['username']); ?>')" 
                                                 class="text-red-400 hover:text-red-300 transition-colors p-2 hover:bg-red-500 hover:bg-opacity-20 rounded-lg" 
-                                                title="Ban Player">
+                                               class="text-blue-400 hover:text-blue-300 transition-colors" title="View Details"
+                                               data-user-id="<?php echo $user['id']; ?>">
                                             <i class="fas fa-ban"></i>
                                         </button>
                                     <?php endif; ?>
