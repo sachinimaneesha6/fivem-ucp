@@ -139,6 +139,41 @@ include 'includes/navbar.php';
                         </div>
                     </div>
                     
+                    <div>
+                        <label for="attachment" class="block text-sm font-medium mb-2 theme-transition" :class="darkMode ? 'text-gray-300' : 'text-gray-700'">
+                            <i class="fas fa-paperclip mr-2"></i>Attachment (Optional)
+                        </label>
+                        <div class="relative">
+                            <input type="file" id="attachment" name="attachment" 
+                                   accept=".jpg,.jpeg,.png,.gif,.pdf,.txt,.log"
+                                   class="hidden"
+                                   onchange="handleFileSelect(this)">
+                            <label for="attachment" 
+                                   class="w-full px-4 py-3 rounded-lg border-2 border-dashed transition-all cursor-pointer flex items-center justify-center hover:border-fivem-primary theme-transition"
+                                   :class="darkMode ? 'border-gray-600 bg-gray-700 hover:bg-gray-650 text-gray-300' : 'border-gray-300 bg-gray-50 hover:bg-gray-100 text-gray-700'">
+                                <div class="text-center">
+                                    <i class="fas fa-cloud-upload-alt text-2xl mb-2 text-fivem-primary"></i>
+                                    <p class="font-medium">Click to upload file</p>
+                                    <p class="text-xs theme-transition" :class="darkMode ? 'text-gray-500' : 'text-gray-500'">
+                                        Images, PDFs, text files (Max 5MB)
+                                    </p>
+                                </div>
+                            </label>
+                        </div>
+                        <div id="file-preview" class="mt-2 hidden">
+                            <div class="flex items-center justify-between p-3 rounded-lg theme-transition" :class="darkMode ? 'bg-gray-700' : 'bg-gray-100'">
+                                <div class="flex items-center">
+                                    <i class="fas fa-file text-fivem-primary mr-2"></i>
+                                    <span id="file-name" class="text-sm font-medium theme-transition" :class="darkMode ? 'text-white' : 'text-gray-900'"></span>
+                                    <span id="file-size" class="text-xs ml-2 theme-transition" :class="darkMode ? 'text-gray-400' : 'text-gray-600'"></span>
+                                </div>
+                                <button type="button" onclick="clearFile()" class="text-red-400 hover:text-red-300 transition-colors">
+                                    <i class="fas fa-times"></i>
+                                </button>
+                            </div>
+                        </div>
+                    </div>
+                    
                     <button type="submit" name="submit_ticket"
                             class="w-full bg-gradient-to-r from-fivem-primary to-yellow-500 hover:from-yellow-500 hover:to-fivem-primary text-white font-bold py-3 px-4 rounded-lg transition-all duration-300 transform hover:scale-105 shadow-lg">
                         <i class="fas fa-paper-plane mr-2"></i>Submit Ticket
