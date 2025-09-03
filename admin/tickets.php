@@ -202,6 +202,41 @@ include '../includes/header.php';
                     <div class="bg-gray-700 rounded-lg p-4">
                         <h4 class="text-white font-semibold mb-2">Original Message</h4>
                         <p class="text-gray-300"><?php echo nl2br(htmlspecialchars($ticket['message'])); ?></p>
+                        
+                        <?php if (!empty($ticket['attachment_path'])): ?>
+                            <div class="bg-gray-600 rounded-lg p-3 mt-3">
+                                <h5 class="text-white font-semibold mb-2">
+                                    <i class="fas fa-paperclip text-blue-400 mr-2"></i>Attachment
+                                </h5>
+                                <div class="flex items-center">
+                                    <?php
+                                    $attachment_path = $ticket['attachment_path'];
+                                    $file_name = basename($attachment_path);
+                                    $file_ext = strtolower(pathinfo($file_name, PATHINFO_EXTENSION));
+                                    $file_icon = match($file_ext) {
+                                        'jpg', 'jpeg', 'png', 'gif' => 'fa-image',
+                                        'pdf' => 'fa-file-pdf', 
+                                        'txt', 'log' => 'fa-file-alt',
+                                        default => 'fa-file'
+                                    };
+                                    $file_color = match($file_ext) {
+                                        'jpg', 'jpeg', 'png', 'gif' => 'text-green-400',
+                                        'pdf' => 'text-red-400',
+                                        'txt', 'log' => 'text-blue-400', 
+                                        default => 'text-gray-400'
+                                    };
+                                    ?>
+                                    <div class="flex items-center">
+                                        <i class="fas <?php echo $file_icon; ?> <?php echo $file_color; ?> mr-2"></i>
+                                        <a href="../<?php echo htmlspecialchars($attachment_path); ?>" 
+                                           target="_blank" 
+                                           class="text-blue-400 hover:text-blue-300 underline">
+                                            <?php echo htmlspecialchars($file_name); ?>
+                                        </a>
+                                    </div>
+                                </div>
+                            </div>
+                        <?php endif; ?>
                     </div>
                     
                     <!-- Admin Response -->
