@@ -67,7 +67,7 @@ try {
     
     foreach ($characters as $character) {
         $money = json_decode($character['money'], true);
-        if ($money) {
+        if ($money && is_array($money)) {
             $total_money += ($money['cash'] ?? 0) + ($money['bank'] ?? 0);
         }
         
@@ -98,7 +98,9 @@ try {
     http_response_code(500);
     echo json_encode([
         'error' => 'Internal server error',
-        'debug' => $e->getMessage()
+        'debug' => $e->getMessage(),
+        'line' => $e->getLine(),
+        'file' => $e->getFile()
     ]);
 }
 
@@ -120,7 +122,7 @@ function generatePlayerDetailsHTML($player, $characters, $vehicles, $tickets, $t
                     </div>
                     <div>
                         <p class="text-gray-400 text-sm">Email</p>
-                        <p class="text-white font-medium"><?php echo htmlspecialchars($player['email']); ?></p>
+                        <p class="text-white font-medium"><?php echo htmlspecialchars($player['email'] ?? 'Not provided'); ?></p>
                     </div>
                     <div>
                         <p class="text-gray-400 text-sm">License</p>
@@ -140,8 +142,8 @@ function generatePlayerDetailsHTML($player, $characters, $vehicles, $tickets, $t
                     </div>
                     <div>
                         <p class="text-gray-400 text-sm">Status</p>
-                        <span class="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium <?php echo $player['is_active'] ? 'bg-green-100 text-green-800' : 'bg-red-100 text-red-800'; ?>">
-                            <?php echo $player['is_active'] ? 'Active' : 'Inactive'; ?>
+                        <span class="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium <?php echo ($player['is_active'] ?? 1) ? 'bg-green-100 text-green-800' : 'bg-red-100 text-red-800'; ?>">
+                            <?php echo ($player['is_active'] ?? 1) ? 'Active' : 'Inactive'; ?>
                         </span>
                     </div>
                 </div>
@@ -167,8 +169,9 @@ function generatePlayerDetailsHTML($player, $characters, $vehicles, $tickets, $t
                             $gang = json_decode($character['gang'], true) ?? [];
                             $metadata = json_decode($character['metadata'], true) ?? [];
                             $inventory = json_decode($character['inventory'], true) ?? [];
+                            $position = json_decode($character['position'], true) ?? [];
                         ?>
-                            <div class="bg-gray-800 rounded-lg p-4 border border-gray-600" x-data="{ showInventory: false, showDetails: false }">
+                            <div class="bg-gray-800 rounded-lg p-4 border border-gray-600" x-data="{ showInventory: false, showVehicles: false, showDetails: false }">
                                 <div class="flex items-center justify-between mb-3">
                                     <div>
                                         <h4 class="text-white font-semibold text-lg">
@@ -228,6 +231,11 @@ function generatePlayerDetailsHTML($player, $characters, $vehicles, $tickets, $t
                                         <i class="fas fa-boxes mr-2"></i>
                                         <span x-text="showInventory ? 'Hide Inventory' : 'Show Inventory'"></span>
                                     </button>
+                                    <button @click="showVehicles = !showVehicles" 
+                                            class="flex-1 bg-indigo-600 hover:bg-indigo-700 text-white py-2 px-4 rounded-lg transition-colors text-sm">
+                                        <i class="fas fa-car mr-2"></i>
+                                        <span x-text="showVehicles ? 'Hide Vehicles' : 'Show Vehicles'"></span>
+                                    </button>
                                 </div>
                                 
                                 <!-- Character Details -->
@@ -260,6 +268,27 @@ function generatePlayerDetailsHTML($player, $characters, $vehicles, $tickets, $t
                                                 <p class="text-white text-sm"><?php echo htmlspecialchars($metadata['bloodtype'] ?? 'N/A'); ?></p>
                                             </div>
                                         </div>
+                                        
+                                        <!-- Position Info -->
+                                        <?php if (!empty($position)): ?>
+                                            <div class="mt-4 bg-gray-800 rounded-lg p-3">
+                                                <h6 class="text-white font-semibold mb-2">Last Known Position</h6>
+                                                <div class="grid grid-cols-3 gap-3 text-center">
+                                                    <div>
+                                                        <p class="text-gray-400 text-xs">X</p>
+                                                        <p class="text-white font-mono text-sm"><?php echo round($position['x'] ?? 0, 2); ?></p>
+                                                    </div>
+                                                    <div>
+                                                        <p class="text-gray-400 text-xs">Y</p>
+                                                        <p class="text-white font-mono text-sm"><?php echo round($position['y'] ?? 0, 2); ?></p>
+                                                    </div>
+                                                    <div>
+                                                        <p class="text-gray-400 text-xs">Z</p>
+                                                        <p class="text-white font-mono text-sm"><?php echo round($position['z'] ?? 0, 2); ?></p>
+                                                    </div>
+                                                </div>
+                                            </div>
+                                        <?php endif; ?>
                                         
                                         <!-- Status Bars -->
                                         <div class="mt-4 space-y-3">
@@ -411,76 +440,76 @@ function generatePlayerDetailsHTML($player, $characters, $vehicles, $tickets, $t
                                         </div>
                                     <?php endif; ?>
                                 </div>
-                            </div>
-                        <?php endforeach; ?>
-                    </div>
-                <?php endif; ?>
-            </div>
-            
-            <!-- Vehicles Section -->
-            <div class="bg-gray-700 rounded-xl p-6">
-                <h3 class="text-lg font-bold text-white mb-4">
-                    <i class="fas fa-car text-blue-400 mr-2"></i>Vehicles (<?php echo count($vehicles); ?>)
-                </h3>
-                
-                <?php if (empty($vehicles)): ?>
-                    <div class="text-center py-8">
-                        <i class="fas fa-car text-4xl text-gray-600 mb-4"></i>
-                        <p class="text-gray-400">No vehicles owned</p>
-                    </div>
-                <?php else: ?>
-                    <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
-                        <?php foreach ($vehicles as $vehicle): 
-                            $mods = json_decode($vehicle['mods'], true) ?? [];
-                        ?>
-                            <div class="bg-gray-800 rounded-lg p-4 border border-gray-600">
-                                <div class="flex items-center justify-between mb-3">
-                                    <div>
-                                        <h4 class="text-white font-semibold"><?php echo htmlspecialchars($vehicle['vehicle']); ?></h4>
-                                        <p class="text-gray-400 text-sm">Plate: <?php echo htmlspecialchars($vehicle['plate']); ?></p>
-                                    </div>
-                                    <div class="text-right">
-                                        <span class="inline-flex items-center px-2 py-1 rounded-full text-xs font-medium <?php echo $vehicle['state'] == 1 ? 'bg-green-100 text-green-800' : 'bg-red-100 text-red-800'; ?>">
-                                            <i class="fas <?php echo $vehicle['state'] == 1 ? 'fa-check-circle' : 'fa-exclamation-triangle'; ?> mr-1"></i>
-                                            <?php echo $vehicle['state'] == 1 ? 'Available' : 'Impounded'; ?>
-                                        </span>
-                                    </div>
-                                </div>
                                 
-                                <!-- Vehicle Stats -->
-                                <div class="grid grid-cols-3 gap-3">
-                                    <div class="text-center p-2 bg-gray-900 rounded">
-                                        <div class="w-6 h-6 bg-blue-500 bg-opacity-20 rounded flex items-center justify-center mx-auto mb-1">
-                                            <i class="fas fa-gas-pump text-blue-400 text-xs"></i>
+                                <!-- Vehicles Section -->
+                                <div x-show="showVehicles" x-transition class="bg-gray-900 rounded-lg p-4">
+                                    <h5 class="text-white font-semibold mb-3">
+                                        <i class="fas fa-car text-indigo-400 mr-2"></i>Vehicles (<?php echo count($vehicles); ?> owned)
+                                    </h5>
+                                    
+                                    <?php if (empty($vehicles)): ?>
+                                        <div class="text-center py-6">
+                                            <i class="fas fa-car text-3xl text-gray-600 mb-3"></i>
+                                            <p class="text-gray-400 text-sm">No vehicles owned</p>
                                         </div>
-                                        <p class="text-blue-400 text-sm font-bold"><?php echo $vehicle['fuel']; ?>%</p>
-                                        <p class="text-gray-500 text-xs">Fuel</p>
-                                    </div>
-                                    <div class="text-center p-2 bg-gray-900 rounded">
-                                        <div class="w-6 h-6 bg-green-500 bg-opacity-20 rounded flex items-center justify-center mx-auto mb-1">
-                                            <i class="fas fa-cog text-green-400 text-xs"></i>
-                                        </div>
-                                        <p class="text-green-400 text-sm font-bold"><?php echo round($vehicle['engine']/10); ?>%</p>
-                                        <p class="text-gray-500 text-xs">Engine</p>
-                                    </div>
-                                    <div class="text-center p-2 bg-gray-900 rounded">
-                                        <div class="w-6 h-6 bg-yellow-500 bg-opacity-20 rounded flex items-center justify-center mx-auto mb-1">
-                                            <i class="fas fa-car-crash text-yellow-400 text-xs"></i>
-                                        </div>
-                                        <p class="text-yellow-400 text-sm font-bold"><?php echo round($vehicle['body']/10); ?>%</p>
-                                        <p class="text-gray-500 text-xs">Body</p>
-                                    </div>
-                                </div>
-                                
-                                <div class="mt-3 text-xs text-gray-400">
-                                    <div class="flex justify-between">
-                                        <span>Garage:</span>
-                                        <span class="text-white"><?php echo htmlspecialchars($vehicle['garage'] ?? 'None'); ?></span>
-                                    </div>
-                                    <?php if ($vehicle['depotprice'] > 0): ?>
-                                        <div class="flex justify-between">
-                                            <span>Impound Fee:</span>
-                                            <span class="text-red-400 font-medium">$<?php echo number_format($vehicle['depotprice']); ?></span>
+                                    <?php else: ?>
+                                        <div class="grid grid-cols-1 md:grid-cols-2 gap-4 max-h-64 overflow-y-auto">
+                                            <?php foreach ($vehicles as $vehicle): 
+                                                $mods = json_decode($vehicle['mods'], true) ?? [];
+                                            ?>
+                                                <div class="bg-gray-800 rounded-lg p-4 border border-gray-600">
+                                                    <div class="flex items-center justify-between mb-3">
+                                                        <div>
+                                                            <h6 class="text-white font-semibold"><?php echo htmlspecialchars($vehicle['vehicle']); ?></h6>
+                                                            <p class="text-gray-400 text-sm">Plate: <?php echo htmlspecialchars($vehicle['plate']); ?></p>
+                                                        </div>
+                                                        <div class="text-right">
+                                                            <span class="inline-flex items-center px-2 py-1 rounded-full text-xs font-medium <?php echo $vehicle['state'] == 1 ? 'bg-green-100 text-green-800' : 'bg-red-100 text-red-800'; ?>">
+                                                                <i class="fas <?php echo $vehicle['state'] == 1 ? 'fa-check-circle' : 'fa-exclamation-triangle'; ?> mr-1"></i>
+                                                                <?php echo $vehicle['state'] == 1 ? 'Available' : 'Impounded'; ?>
+                                                            </span>
+                                                        </div>
+                                                    </div>
+                                                    
+                                                    <!-- Vehicle Stats -->
+                                                    <div class="grid grid-cols-3 gap-3">
+                                                        <div class="text-center p-2 bg-gray-700 rounded">
+                                                            <div class="w-6 h-6 bg-blue-500 bg-opacity-20 rounded flex items-center justify-center mx-auto mb-1">
+                                                                <i class="fas fa-gas-pump text-blue-400 text-xs"></i>
+                                                            </div>
+                                                            <p class="text-blue-400 text-sm font-bold"><?php echo $vehicle['fuel']; ?>%</p>
+                                                            <p class="text-gray-500 text-xs">Fuel</p>
+                                                        </div>
+                                                        <div class="text-center p-2 bg-gray-700 rounded">
+                                                            <div class="w-6 h-6 bg-green-500 bg-opacity-20 rounded flex items-center justify-center mx-auto mb-1">
+                                                                <i class="fas fa-cog text-green-400 text-xs"></i>
+                                                            </div>
+                                                            <p class="text-green-400 text-sm font-bold"><?php echo round($vehicle['engine']/10); ?>%</p>
+                                                            <p class="text-gray-500 text-xs">Engine</p>
+                                                        </div>
+                                                        <div class="text-center p-2 bg-gray-700 rounded">
+                                                            <div class="w-6 h-6 bg-yellow-500 bg-opacity-20 rounded flex items-center justify-center mx-auto mb-1">
+                                                                <i class="fas fa-car-crash text-yellow-400 text-xs"></i>
+                                                            </div>
+                                                            <p class="text-yellow-400 text-sm font-bold"><?php echo round($vehicle['body']/10); ?>%</p>
+                                                            <p class="text-gray-500 text-xs">Body</p>
+                                                        </div>
+                                                    </div>
+                                                    
+                                                    <div class="mt-3 text-xs text-gray-400">
+                                                        <div class="flex justify-between">
+                                                            <span>Garage:</span>
+                                                            <span class="text-white"><?php echo htmlspecialchars($vehicle['garage'] ?? 'None'); ?></span>
+                                                        </div>
+                                                        <?php if ($vehicle['depotprice'] > 0): ?>
+                                                            <div class="flex justify-between">
+                                                                <span>Impound Fee:</span>
+                                                                <span class="text-red-400 font-medium">$<?php echo number_format($vehicle['depotprice']); ?></span>
+                                                            </div>
+                                                        <?php endif; ?>
+                                                    </div>
+                                                </div>
+                                            <?php endforeach; ?>
                                         </div>
                                     <?php endif; ?>
                                 </div>
@@ -522,18 +551,47 @@ function generatePlayerDetailsHTML($player, $characters, $vehicles, $tickets, $t
                 </div>
             </div>
             
+            <!-- Support Tickets -->
+            <?php if (!empty($tickets)): ?>
+                <div class="bg-gray-700 rounded-xl p-6">
+                    <h3 class="text-lg font-bold text-white mb-4">
+                        <i class="fas fa-ticket-alt text-yellow-400 mr-2"></i>Recent Tickets
+                    </h3>
+                    <div class="space-y-3">
+                        <?php foreach (array_slice($tickets, 0, 3) as $ticket): ?>
+                            <div class="bg-gray-800 rounded-lg p-3">
+                                <div class="flex items-center justify-between mb-2">
+                                    <h4 class="text-white font-medium text-sm"><?php echo htmlspecialchars($ticket['subject']); ?></h4>
+                                    <span class="inline-flex items-center px-2 py-1 rounded-full text-xs font-medium <?php 
+                                        switch($ticket['status']) {
+                                            case 'open': echo 'bg-green-100 text-green-800'; break;
+                                            case 'in_progress': echo 'bg-yellow-100 text-yellow-800'; break;
+                                            case 'closed': echo 'bg-gray-100 text-gray-800'; break;
+                                        }
+                                    ?>"><?php echo ucfirst(str_replace('_', ' ', $ticket['status'])); ?></span>
+                                </div>
+                                <div class="flex justify-between text-xs">
+                                    <span class="text-gray-400">#{<?php echo $ticket['id']; ?>}</span>
+                                    <span class="text-gray-500"><?php echo date('M j', strtotime($ticket['created_at'])); ?></span>
+                                </div>
+                            </div>
+                        <?php endforeach; ?>
+                    </div>
+                </div>
+            <?php endif; ?>
+            
             <!-- Quick Actions -->
             <div class="bg-gray-700 rounded-xl p-6">
                 <h3 class="text-lg font-bold text-white mb-4">
                     <i class="fas fa-tools text-yellow-400 mr-2"></i>Quick Actions
                 </h3>
                 <div class="space-y-3">
-                    <button onclick="closeModal('playerModal'); openEditModal(<?php echo $player['id']; ?>)" 
+                    <button onclick="editPlayer(<?php echo $player['id']; ?>)" 
                             class="w-full bg-blue-600 hover:bg-blue-700 text-white py-2 px-4 rounded-lg transition-colors">
                         <i class="fas fa-edit mr-2"></i>Edit Player
                     </button>
                     
-                    <?php if (!$player['is_active']): ?>
+                    <?php if (!($player['is_active'] ?? 1)): ?>
                         <button onclick="togglePlayerStatus(<?php echo $player['id']; ?>, true)" 
                                 class="w-full bg-green-600 hover:bg-green-700 text-white py-2 px-4 rounded-lg transition-colors">
                             <i class="fas fa-user-check mr-2"></i>Activate Player
@@ -548,6 +606,11 @@ function generatePlayerDetailsHTML($player, $characters, $vehicles, $tickets, $t
                     <button onclick="resetPlayerPassword(<?php echo $player['id']; ?>, '<?php echo htmlspecialchars($player['username']); ?>')" 
                             class="w-full bg-yellow-600 hover:bg-yellow-700 text-white py-2 px-4 rounded-lg transition-colors">
                         <i class="fas fa-key mr-2"></i>Reset Password
+                    </button>
+                    
+                    <button onclick="viewPlayerTickets(<?php echo $player['id']; ?>)" 
+                            class="w-full bg-purple-600 hover:bg-purple-700 text-white py-2 px-4 rounded-lg transition-colors">
+                        <i class="fas fa-ticket-alt mr-2"></i>View All Tickets
                     </button>
                 </div>
             </div>
