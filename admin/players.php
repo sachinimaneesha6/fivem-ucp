@@ -829,7 +829,7 @@ include '../includes/header.php';
                                         </form>
                                     <?php else: ?>
                                         <button onclick="openBanModal(<?php echo $player['id']; ?>, '<?php echo htmlspecialchars($player['username']); ?>')" 
-                                                class="text-red-400 hover:text-red-300 transition-colors p-2 hover:bg-red-500 hover:bg-opacity-20 rounded-lg" 
+                                        <button onclick="viewPlayerDetails(<?php echo $user['id']; ?>)" 
                                                 title="Ban Player">
                                             <i class="fas fa-ban"></i>
                                         </button>

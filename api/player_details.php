@@ -3,15 +3,15 @@ header('Content-Type: application/json');
 require_once '../config/database.php';
 require_once '../config/auth.php';
 
-$database = new Database();
-$db = $database->getConnection();
-$auth = new Auth($db);
-
 // Enable error reporting for debugging
 error_reporting(E_ALL);
-ini_set('display_errors', 0); // Don't display errors in JSON response
+ini_set('display_errors', 0);
 
 try {
+    $database = new Database();
+    $db = $database->getConnection();
+    $auth = new Auth($db);
+
     if (!$auth->isLoggedIn() || !$auth->isAdmin()) {
         http_response_code(403);
         echo json_encode(['error' => 'Admin access required']);
@@ -26,7 +26,7 @@ try {
         exit();
     }
 
-    // Get player details with error handling
+    // First, let's check if the player exists
     $player_query = "SELECT * FROM user_accounts WHERE id = :id";
     $player_stmt = $db->prepare($player_query);
     $player_stmt->bindParam(':id', $player_id);
@@ -40,40 +40,67 @@ try {
 
     $player = $player_stmt->fetch(PDO::FETCH_ASSOC);
 
-    // Get player characters with detailed info
-    $characters_query = "SELECT * FROM players WHERE license = :license ORDER BY last_updated DESC";
-    $characters_stmt = $db->prepare($characters_query);
-    $characters_stmt->bindParam(':license', $player['license']);
-    $characters_stmt->execute();
-    $characters = $characters_stmt->fetchAll(PDO::FETCH_ASSOC);
+    // Get player characters - handle missing license gracefully
+    $characters = [];
+    if (!empty($player['license'])) {
+        try {
+            $characters_query = "SELECT * FROM players WHERE license = :license ORDER BY last_updated DESC";
+            $characters_stmt = $db->prepare($characters_query);
+            $characters_stmt->bindParam(':license', $player['license']);
+            $characters_stmt->execute();
+            $characters = $characters_stmt->fetchAll(PDO::FETCH_ASSOC);
+        } catch (Exception $e) {
+            // Characters table might not exist or have different structure
+            $characters = [];
+        }
+    }
 
-    // Get player vehicles
-    $vehicles_query = "SELECT * FROM player_vehicles WHERE license = :license ORDER BY vehicle ASC";
-    $vehicles_stmt = $db->prepare($vehicles_query);
-    $vehicles_stmt->bindParam(':license', $player['license']);
-    $vehicles_stmt->execute();
-    $vehicles = $vehicles_stmt->fetchAll(PDO::FETCH_ASSOC);
+    // Get player vehicles - handle gracefully if table doesn't exist
+    $vehicles = [];
+    if (!empty($player['license'])) {
+        try {
+            $vehicles_query = "SELECT * FROM player_vehicles WHERE license = :license ORDER BY vehicle ASC";
+            $vehicles_stmt = $db->prepare($vehicles_query);
+            $vehicles_stmt->bindParam(':license', $player['license']);
+            $vehicles_stmt->execute();
+            $vehicles = $vehicles_stmt->fetchAll(PDO::FETCH_ASSOC);
+        } catch (Exception $e) {
+            // Vehicles table might not exist
+            $vehicles = [];
+        }
+    }
 
     // Get support tickets
-    $tickets_query = "SELECT * FROM support_tickets WHERE user_id = :user_id ORDER BY created_at DESC LIMIT 5";
-    $tickets_stmt = $db->prepare($tickets_query);
-    $tickets_stmt->bindParam(':user_id', $player_id);
-    $tickets_stmt->execute();
-    $tickets = $tickets_stmt->fetchAll(PDO::FETCH_ASSOC);
+    $tickets = [];
+    try {
+        $tickets_query = "SELECT * FROM support_tickets WHERE user_id = :user_id ORDER BY created_at DESC LIMIT 5";
+        $tickets_stmt = $db->prepare($tickets_query);
+        $tickets_stmt->bindParam(':user_id', $player_id);
+        $tickets_stmt->execute();
+        $tickets = $tickets_stmt->fetchAll(PDO::FETCH_ASSOC);
+    } catch (Exception $e) {
+        // Support tickets table might not exist
+        $tickets = [];
+    }
 
     // Calculate stats safely
     $total_money = 0;
     $total_items = 0;
     
     foreach ($characters as $character) {
-        $money = json_decode($character['money'], true);
-        if ($money && is_array($money)) {
-            $total_money += ($money['cash'] ?? 0) + ($money['bank'] ?? 0);
-        }
-        
-        $inventory = json_decode($character['inventory'], true);
-        if ($inventory && is_array($inventory)) {
-            $total_items += count($inventory);
+        try {
+            $money = json_decode($character['money'] ?? '{}', true);
+            if ($money && is_array($money)) {
+                $total_money += ($money['cash'] ?? 0) + ($money['bank'] ?? 0);
+            }
+            
+            $inventory = json_decode($character['inventory'] ?? '[]', true);
+            if ($inventory && is_array($inventory)) {
+                $total_items += count($inventory);
+            }
+        } catch (Exception $e) {
+            // Skip if JSON is malformed
+            continue;
         }
     }
 
@@ -97,10 +124,10 @@ try {
     error_log("Player details error: " . $e->getMessage());
     http_response_code(500);
     echo json_encode([
-        'error' => 'Internal server error',
+        'error' => 'Database error occurred',
         'debug' => $e->getMessage(),
         'line' => $e->getLine(),
-        'file' => $e->getFile()
+        'file' => basename($e->getFile())
     ]);
 }
 
@@ -126,8 +153,8 @@ function generatePlayerDetailsHTML($player, $characters, $vehicles, $tickets, $t
                     </div>
                     <div>
                         <p class="text-gray-400 text-sm">License</p>
-                        <p class="text-white font-mono text-xs" title="<?php echo htmlspecialchars($player['license']); ?>">
-                            <?php echo htmlspecialchars(substr($player['license'], -20)); ?>
+                        <p class="text-white font-mono text-xs break-all">
+                            <?php echo htmlspecialchars($player['license'] ?? 'Not available'); ?>
                         </p>
                     </div>
                     <div>
@@ -163,13 +190,13 @@ function generatePlayerDetailsHTML($player, $characters, $vehicles, $tickets, $t
                 <?php else: ?>
                     <div class="space-y-4">
                         <?php foreach ($characters as $character): 
-                            $charinfo = json_decode($character['charinfo'], true) ?? [];
-                            $money = json_decode($character['money'], true) ?? [];
-                            $job = json_decode($character['job'], true) ?? [];
-                            $gang = json_decode($character['gang'], true) ?? [];
-                            $metadata = json_decode($character['metadata'], true) ?? [];
-                            $inventory = json_decode($character['inventory'], true) ?? [];
-                            $position = json_decode($character['position'], true) ?? [];
+                            $charinfo = json_decode($character['charinfo'] ?? '{}', true) ?? [];
+                            $money = json_decode($character['money'] ?? '{}', true) ?? [];
+                            $job = json_decode($character['job'] ?? '{}', true) ?? [];
+                            $gang = json_decode($character['gang'] ?? '{}', true) ?? [];
+                            $metadata = json_decode($character['metadata'] ?? '{}', true) ?? [];
+                            $inventory = json_decode($character['inventory'] ?? '[]', true) ?? [];
+                            $position = json_decode($character['position'] ?? '{}', true) ?? [];
                         ?>
                             <div class="bg-gray-800 rounded-lg p-4 border border-gray-600" x-data="{ showInventory: false, showVehicles: false, showDetails: false }">
                                 <div class="flex items-center justify-between mb-3">
@@ -177,13 +204,13 @@ function generatePlayerDetailsHTML($player, $characters, $vehicles, $tickets, $t
                                         <h4 class="text-white font-semibold text-lg">
                                             <?php echo htmlspecialchars(($charinfo['firstname'] ?? 'Unknown') . ' ' . ($charinfo['lastname'] ?? 'Player')); ?>
                                         </h4>
-                                        <p class="text-gray-400 text-sm">ID: <?php echo htmlspecialchars($character['citizenid']); ?></p>
+                                        <p class="text-gray-400 text-sm">ID: <?php echo htmlspecialchars($character['citizenid'] ?? 'N/A'); ?></p>
                                         <p class="text-gray-400 text-sm">Job: <?php echo htmlspecialchars($job['label'] ?? 'Unemployed'); ?></p>
                                     </div>
                                     <div class="text-right">
                                         <p class="text-green-400 font-bold text-lg">$<?php echo number_format(($money['cash'] ?? 0) + ($money['bank'] ?? 0)); ?></p>
                                         <p class="text-gray-400 text-xs">Total Money</p>
-                                        <p class="text-gray-500 text-xs">Last: <?php echo date('M j, g:i A', strtotime($character['last_updated'])); ?></p>
+                                        <p class="text-gray-500 text-xs">Last: <?php echo date('M j, g:i A', strtotime($character['last_updated'] ?? 'now')); ?></p>
                                     </div>
                                 </div>
                                 
@@ -229,12 +256,12 @@ function generatePlayerDetailsHTML($player, $characters, $vehicles, $tickets, $t
                                     <button @click="showInventory = !showInventory" 
                                             class="flex-1 bg-purple-600 hover:bg-purple-700 text-white py-2 px-4 rounded-lg transition-colors text-sm">
                                         <i class="fas fa-boxes mr-2"></i>
-                                        <span x-text="showInventory ? 'Hide Inventory' : 'Show Inventory'"></span>
+                                        <span x-text="showInventory ? 'Hide Inventory' : 'Show Inventory (' + <?php echo count($inventory); ?> + ')'"></span>
                                     </button>
                                     <button @click="showVehicles = !showVehicles" 
                                             class="flex-1 bg-indigo-600 hover:bg-indigo-700 text-white py-2 px-4 rounded-lg transition-colors text-sm">
                                         <i class="fas fa-car mr-2"></i>
-                                        <span x-text="showVehicles ? 'Hide Vehicles' : 'Show Vehicles'"></span>
+                                        <span x-text="showVehicles ? 'Hide Vehicles' : 'Show Vehicles (' + <?php echo count($vehicles); ?> + ')'"></span>
                                     </button>
                                 </div>
                                 
@@ -270,7 +297,7 @@ function generatePlayerDetailsHTML($player, $characters, $vehicles, $tickets, $t
                                         </div>
                                         
                                         <!-- Position Info -->
-                                        <?php if (!empty($position)): ?>
+                                        <?php if (!empty($position) && isset($position['x'])): ?>
                                             <div class="mt-4 bg-gray-800 rounded-lg p-3">
                                                 <h6 class="text-white font-semibold mb-2">Last Known Position</h6>
                                                 <div class="grid grid-cols-3 gap-3 text-center">
@@ -455,18 +482,18 @@ function generatePlayerDetailsHTML($player, $characters, $vehicles, $tickets, $t
                                     <?php else: ?>
                                         <div class="grid grid-cols-1 md:grid-cols-2 gap-4 max-h-64 overflow-y-auto">
                                             <?php foreach ($vehicles as $vehicle): 
-                                                $mods = json_decode($vehicle['mods'], true) ?? [];
+                                                $mods = json_decode($vehicle['mods'] ?? '{}', true) ?? [];
                                             ?>
                                                 <div class="bg-gray-800 rounded-lg p-4 border border-gray-600">
                                                     <div class="flex items-center justify-between mb-3">
                                                         <div>
-                                                            <h6 class="text-white font-semibold"><?php echo htmlspecialchars($vehicle['vehicle']); ?></h6>
-                                                            <p class="text-gray-400 text-sm">Plate: <?php echo htmlspecialchars($vehicle['plate']); ?></p>
+                                                            <h6 class="text-white font-semibold"><?php echo htmlspecialchars($vehicle['vehicle'] ?? 'Unknown Vehicle'); ?></h6>
+                                                            <p class="text-gray-400 text-sm">Plate: <?php echo htmlspecialchars($vehicle['plate'] ?? 'N/A'); ?></p>
                                                         </div>
                                                         <div class="text-right">
-                                                            <span class="inline-flex items-center px-2 py-1 rounded-full text-xs font-medium <?php echo $vehicle['state'] == 1 ? 'bg-green-100 text-green-800' : 'bg-red-100 text-red-800'; ?>">
-                                                                <i class="fas <?php echo $vehicle['state'] == 1 ? 'fa-check-circle' : 'fa-exclamation-triangle'; ?> mr-1"></i>
-                                                                <?php echo $vehicle['state'] == 1 ? 'Available' : 'Impounded'; ?>
+                                                            <span class="inline-flex items-center px-2 py-1 rounded-full text-xs font-medium <?php echo ($vehicle['state'] ?? 0) == 1 ? 'bg-green-100 text-green-800' : 'bg-red-100 text-red-800'; ?>">
+                                                                <i class="fas <?php echo ($vehicle['state'] ?? 0) == 1 ? 'fa-check-circle' : 'fa-exclamation-triangle'; ?> mr-1"></i>
+                                                                <?php echo ($vehicle['state'] ?? 0) == 1 ? 'Available' : 'Impounded'; ?>
                                                             </span>
                                                         </div>
                                                     </div>
@@ -477,21 +504,21 @@ function generatePlayerDetailsHTML($player, $characters, $vehicles, $tickets, $t
                                                             <div class="w-6 h-6 bg-blue-500 bg-opacity-20 rounded flex items-center justify-center mx-auto mb-1">
                                                                 <i class="fas fa-gas-pump text-blue-400 text-xs"></i>
                                                             </div>
-                                                            <p class="text-blue-400 text-sm font-bold"><?php echo $vehicle['fuel']; ?>%</p>
+                                                            <p class="text-blue-400 text-sm font-bold"><?php echo $vehicle['fuel'] ?? 100; ?>%</p>
                                                             <p class="text-gray-500 text-xs">Fuel</p>
                                                         </div>
                                                         <div class="text-center p-2 bg-gray-700 rounded">
                                                             <div class="w-6 h-6 bg-green-500 bg-opacity-20 rounded flex items-center justify-center mx-auto mb-1">
                                                                 <i class="fas fa-cog text-green-400 text-xs"></i>
                                                             </div>
-                                                            <p class="text-green-400 text-sm font-bold"><?php echo round($vehicle['engine']/10); ?>%</p>
+                                                            <p class="text-green-400 text-sm font-bold"><?php echo round(($vehicle['engine'] ?? 1000)/10); ?>%</p>
                                                             <p class="text-gray-500 text-xs">Engine</p>
                                                         </div>
                                                         <div class="text-center p-2 bg-gray-700 rounded">
                                                             <div class="w-6 h-6 bg-yellow-500 bg-opacity-20 rounded flex items-center justify-center mx-auto mb-1">
                                                                 <i class="fas fa-car-crash text-yellow-400 text-xs"></i>
                                                             </div>
-                                                            <p class="text-yellow-400 text-sm font-bold"><?php echo round($vehicle['body']/10); ?>%</p>
+                                                            <p class="text-yellow-400 text-sm font-bold"><?php echo round(($vehicle['body'] ?? 1000)/10); ?>%</p>
                                                             <p class="text-gray-500 text-xs">Body</p>
                                                         </div>
                                                     </div>
@@ -501,10 +528,16 @@ function generatePlayerDetailsHTML($player, $characters, $vehicles, $tickets, $t
                                                             <span>Garage:</span>
                                                             <span class="text-white"><?php echo htmlspecialchars($vehicle['garage'] ?? 'None'); ?></span>
                                                         </div>
-                                                        <?php if ($vehicle['depotprice'] > 0): ?>
+                                                        <?php if (($vehicle['depotprice'] ?? 0) > 0): ?>
                                                             <div class="flex justify-between">
                                                                 <span>Impound Fee:</span>
                                                                 <span class="text-red-400 font-medium">$<?php echo number_format($vehicle['depotprice']); ?></span>
+                                                            </div>
+                                                        <?php endif; ?>
+                                                        <?php if (!empty($vehicle['drivingdistance'])): ?>
+                                                            <div class="flex justify-between">
+                                                                <span>Mileage:</span>
+                                                                <span class="text-blue-400"><?php echo number_format($vehicle['drivingdistance']); ?> km</span>
                                                             </div>
                                                         <?php endif; ?>
                                                     </div>
@@ -571,7 +604,7 @@ function generatePlayerDetailsHTML($player, $characters, $vehicles, $tickets, $t
                                     ?>"><?php echo ucfirst(str_replace('_', ' ', $ticket['status'])); ?></span>
                                 </div>
                                 <div class="flex justify-between text-xs">
-                                    <span class="text-gray-400">#{<?php echo $ticket['id']; ?>}</span>
+                                    <span class="text-gray-400">#<?php echo $ticket['id']; ?></span>
                                     <span class="text-gray-500"><?php echo date('M j', strtotime($ticket['created_at'])); ?></span>
                                 </div>
                             </div>
