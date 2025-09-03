@@ -794,15 +794,6 @@ include '../includes/header.php';
                                         <span class="text-gray-400 ml-1">chars</span>
                                     </div>
                                     <div class="flex items-center">
-                                        <i class="fas fa-car mr-2 text-gray-500"></i>
-                                        <span class="text-white"><?php echo $player['vehicle_count']; ?></span>
-                                        <span class="text-gray-400 ml-1">vehicles</span>
-                                    </div>
-                                    <div class="flex items-center">
-                                        <i class="fas fa-dollar-sign mr-2 text-gray-500"></i>
-                                        <span class="text-green-400 font-bold">$<?php echo number_format($player['total_money']); ?></span>
-                                    </div>
-                                    <div class="flex items-center">
                                         <i class="fas fa-sign-in-alt mr-2 text-gray-500"></i>
                                         <span class="text-white"><?php echo $player['total_logins']; ?></span>
                                         <span class="text-gray-400 ml-1">logins</span>
