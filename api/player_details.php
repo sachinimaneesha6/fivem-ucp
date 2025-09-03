@@ -30,11 +30,15 @@ try {
         exit();
     }
 
-    $user_id = $_GET['user_id'] ?? '';
+    $user_id = $_GET['user_id'] ?? $_GET['id'] ?? '';
     
     if (empty($user_id)) {
         http_response_code(400);
-        echo json_encode(['error' => 'User ID required', 'debug' => 'No user_id parameter provided']);
+        echo json_encode([
+            'error' => 'User ID required', 
+            'debug' => 'No user_id or id parameter provided',
+            'received_params' => $_GET
+        ]);
         exit();
     }
 
