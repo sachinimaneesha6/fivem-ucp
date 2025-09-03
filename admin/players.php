@@ -1324,6 +1324,70 @@ function viewPlayerDetails(playerId) {
         });
 }
 
+async function showPlayerDetails(userId) {
+    const modal = document.getElementById('playerModal');
+    const content = document.getElementById('playerModalContent');
+    
+    console.log('🔍 Loading player details for user ID:', userId);
+    
+    // Show loading state
+    content.innerHTML = `
+        <div class="flex items-center justify-center py-12">
+            <div class="animate-spin rounded-full h-12 w-12 border-b-2 border-fivem-primary"></div>
+            <span class="ml-3 text-gray-400">Loading player details...</span>
+        </div>
+    `;
+    
+    modal.classList.remove('hidden');
+    
+    try {
+        console.log('📡 Making API request to:', `../api/player_details.php?user_id=${userId}`);
+        const response = await fetch(`../api/player_details.php?user_id=${userId}`);
+        console.log('📊 Response status:', response.status);
+        console.log('📊 Response headers:', Object.fromEntries(response.headers.entries()));
+        
+        const responseText = await response.text();
+        console.log('📄 Raw response:', responseText);
+        
+        if (!response.ok) {
+            throw new Error(`HTTP error! status: ${response.status}, response: ${responseText}`);
+        }
+        
+        let data;
+        try {
+            data = JSON.parse(responseText);
+        } catch (parseError) {
+            console.error('❌ JSON Parse Error:', parseError);
+            throw new Error(`Invalid JSON response: ${responseText.substring(0, 200)}...`);
+        }
+        
+        console.log('✅ Parsed data:', data);
+        
+        if (!data.success) {
+            console.error('❌ API Error:', data.error, data.debug);
+            throw new Error(data.error || 'Unknown API error');
+        }
+        
+        displayPlayerDetails(data);
+        
+    } catch (error) {
+        console.error('❌ Error loading player details:', error);
+        content.innerHTML = `
+            <div class="text-center py-12">
+                <i class="fas fa-exclamation-triangle text-6xl text-red-500 mb-4"></i>
+                <h3 class="text-xl font-bold text-white mb-2">Error Loading Player Details</h3>
+                <p class="text-gray-400 mb-4">Error: ${error.message}</p>
+                <div class="bg-gray-700 rounded-lg p-4 mb-4 text-left">
+                    <p class="text-gray-300 text-sm font-mono">${error.stack || 'No stack trace available'}</p>
+                </div>
+                <button onclick="showPlayerDetails(${userId})" class="bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded-lg">
+                    Try Again
+                </button>
+            </div>
+        `;
+    }
+}
+
 // Close modals when clicking outside
 document.addEventListener('click', function(e) {
     if (e.target.classList.contains('fixed') && e.target.classList.contains('inset-0')) {
