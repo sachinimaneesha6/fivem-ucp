@@ -829,7 +829,7 @@ include '../includes/header.php';
                                         </form>
                                     <?php else: ?>
                                         <button onclick="openBanModal(<?php echo $player['id']; ?>, '<?php echo htmlspecialchars($player['username']); ?>')" 
-                                        <button onclick="viewPlayerDetails(<?php echo $user['id']; ?>)" 
+                                                class="text-red-400 hover:text-red-300 transition-colors p-2 hover:bg-red-500 hover:bg-opacity-20 rounded-lg" 
                                                 title="Ban Player">
                                             <i class="fas fa-ban"></i>
                                         </button>
@@ -1288,6 +1288,40 @@ async function loadPlayerForEdit(playerId) {
     } catch (error) {
         console.error('Failed to load player for editing:', error);
     }
+}
+
+function viewPlayerDetails(playerId) {
+    const modal = document.getElementById('playerModal');
+    const modalContent = document.getElementById('modalContent');
+    
+    modal.classList.remove('hidden');
+    modalContent.innerHTML = '<div class="text-center py-8"><i class="fas fa-spinner fa-spin text-3xl text-gray-400 mb-4"></i><p class="text-gray-400">Loading player details...</p></div>';
+    
+    fetch(`../api/player_details.php?id=${playerId}`)
+        .then(response => {
+            console.log('Response status:', response.status);
+            if (!response.ok) {
+                return response.json().then(err => Promise.reject(err));
+            }
+            return response.json();
+        })
+        .then(data => {
+            console.log('Player data received:', data);
+            if (data.success) {
+                modalContent.innerHTML = data.html;
+            } else {
+                modalContent.innerHTML = `<div class="text-center py-8"><i class="fas fa-exclamation-triangle text-red-400 text-4xl mb-4"></i><p class="text-red-400">Error: ${data.error || 'Failed to load player details'}</p></div>`;
+            }
+        })
+        .catch(error => {
+            console.error('Error loading player details:', error);
+            modalContent.innerHTML = `<div class="text-center py-8">
+                <i class="fas fa-exclamation-triangle text-red-400 text-4xl mb-4"></i>
+                <p class="text-red-400 mb-2">Error loading player details</p>
+                <p class="text-gray-400 text-sm">${error.error || error.message || 'Unknown error'}</p>
+                ${error.debug ? `<p class="text-gray-500 text-xs mt-2">Debug: ${error.debug}</p>` : ''}
+            </div>`;
+        });
 }
 
 // Close modals when clicking outside
