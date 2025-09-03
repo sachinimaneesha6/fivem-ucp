@@ -1,6 +1,7 @@
 <?php
 require_once '../config/database.php';
 require_once '../config/auth.php';
+require_once '../config/discord.php';
 
 $database = new Database();
 $db = $database->getConnection();
@@ -9,9 +10,10 @@ $auth = new Auth($db);
 $auth->requireLogin();
 $auth->requireAdmin();
 
-$action_message = '';
+$discord = new DiscordWebhook();
 
 // Handle ticket actions
+$action_message = '';
 if ($_SERVER['REQUEST_METHOD'] == 'POST') {
     $action = $_POST['action'] ?? '';
     $ticket_id = $_POST['ticket_id'] ?? '';
@@ -40,75 +42,41 @@ if ($_SERVER['REQUEST_METHOD'] == 'POST') {
                 }
             }
             break;
-            
-        case 'assign_ticket':
-            $assigned_to = $_POST['assigned_to'] ?? '';
-            $query = "UPDATE support_tickets SET assigned_to = :assigned_to, updated_at = NOW() WHERE id = :id";
-            $stmt = $db->prepare($query);
-            $stmt->bindParam(':assigned_to', $assigned_to);
-            $stmt->bindParam(':id', $ticket_id);
-            if ($stmt->execute()) {
-                $action_message = 'Ticket assigned successfully';
-            }
-            break;
     }
 }
 
-// Get all tickets with assignment info
-$tickets_query = "SELECT st.*, ua.username as assigned_username,
-    CASE 
-        WHEN st.created_at >= DATE_SUB(NOW(), INTERVAL 1 HOUR) AND st.priority = 'urgent' THEN 'urgent_new'
-        WHEN st.created_at >= DATE_SUB(NOW(), INTERVAL 24 HOUR) THEN 'new'
-        ELSE 'normal'
-    END as ticket_type
-    FROM support_tickets st
-    LEFT JOIN user_accounts ua ON st.assigned_to = ua.id
-    ORDER BY 
-        CASE st.priority 
-            WHEN 'urgent' THEN 1 
-            WHEN 'high' THEN 2 
-            WHEN 'medium' THEN 3 
-            WHEN 'low' THEN 4 
-        END,
-        CASE 
-            WHEN st.created_at >= DATE_SUB(NOW(), INTERVAL 1 HOUR) AND st.priority = 'urgent' THEN 1
-            WHEN st.created_at >= DATE_SUB(NOW(), INTERVAL 24 HOUR) THEN 2
-            ELSE 3
-        END,
-        st.created_at DESC";
+// Get all tickets with filters
+$status_filter = $_GET['status'] ?? 'all';
+$priority_filter = $_GET['priority'] ?? 'all';
+
+$where_conditions = [];
+$params = [];
+
+if ($status_filter != 'all') {
+    $where_conditions[] = "status = :status";
+    $params[':status'] = $status_filter;
+}
+
+if ($priority_filter != 'all') {
+    $where_conditions[] = "priority = :priority";
+    $params[':priority'] = $priority_filter;
+}
+
+$where_clause = !empty($where_conditions) ? 'WHERE ' . implode(' AND ', $where_conditions) : '';
+
+$tickets_query = "SELECT * FROM support_tickets $where_clause ORDER BY 
+    CASE priority 
+        WHEN 'urgent' THEN 1 
+        WHEN 'high' THEN 2 
+        WHEN 'medium' THEN 3 
+        WHEN 'low' THEN 4 
+    END, created_at DESC";
 $tickets_stmt = $db->prepare($tickets_query);
+foreach ($params as $key => $value) {
+    $tickets_stmt->bindValue($key, $value);
+}
 $tickets_stmt->execute();
 $tickets = $tickets_stmt->fetchAll(PDO::FETCH_ASSOC);
-
-// Get staff members for assignment
-$staff_query = "SELECT id, username FROM user_accounts WHERE is_admin = 1 AND is_active = 1 ORDER BY username";
-$staff_stmt = $db->prepare($staff_query);
-$staff_stmt->execute();
-$staff_members = $staff_stmt->fetchAll(PDO::FETCH_ASSOC);
-
-// Get ticket stats
-$stats_query = "SELECT 
-    COUNT(*) as total_tickets,
-    SUM(CASE WHEN status IN ('open', 'in_progress') THEN 1 ELSE 0 END) as open_tickets,
-    SUM(CASE WHEN status = 'closed' THEN 1 ELSE 0 END) as closed_tickets,
-    SUM(CASE WHEN priority = 'urgent' THEN 1 ELSE 0 END) as urgent_tickets,
-    SUM(CASE WHEN created_at >= DATE_SUB(NOW(), INTERVAL 24 HOUR) THEN 1 ELSE 0 END) as new_today
-    FROM support_tickets";
-$stats_stmt = $db->prepare($stats_query);
-$stats_stmt->execute();
-$ticket_stats = $stats_stmt->fetch(PDO::FETCH_ASSOC);
-
-// Canned responses
-$canned_responses = [
-    'cache_clear' => 'Please clear your FiveM cache and try again. You can do this by deleting the cache folder in your FiveM directory.',
-    'restart_game' => 'Please restart your game and try connecting again. If the issue persists, please let us know.',
-    'server_restart' => 'We are aware of this issue and will address it during the next server restart.',
-    'under_investigation' => 'Thank you for reporting this issue. Our team is currently investigating and will provide an update soon.',
-    'resolved_update' => 'This issue has been resolved in our latest update. Please restart your game to apply the changes.',
-    'ban_appeal_review' => 'Your ban appeal has been received and is under review. We will respond within 24-48 hours.',
-    'billing_processed' => 'Your billing inquiry has been processed. Please check your account for updates.',
-    'feature_request' => 'Thank you for your suggestion. We have added it to our development roadmap for consideration.'
-];
 
 $page_title = 'Ticket Management';
 include '../includes/header.php';
@@ -153,73 +121,8 @@ include '../includes/header.php';
 
 <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
     <div class="mb-8">
-        <h1 class="text-3xl font-bold text-white mb-2">
-            <i class="fas fa-headset text-fivem-primary mr-3"></i>Ticket Management
-        </h1>
+        <h1 class="text-3xl font-bold text-white mb-2">Support Ticket Management</h1>
         <p class="text-gray-400">Manage and respond to user support requests</p>
-    </div>
-    
-    <!-- Ticket Stats -->
-    <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-5 gap-6 mb-8">
-        <div class="bg-gray-800 rounded-xl border border-gray-700 p-6">
-            <div class="flex items-center">
-                <div class="p-3 bg-blue-500 bg-opacity-20 rounded-lg">
-                    <i class="fas fa-ticket-alt text-blue-400 text-xl"></i>
-                </div>
-                <div class="ml-4">
-                    <p class="text-sm text-gray-400">Total Tickets</p>
-                    <p class="text-2xl font-bold text-white"><?php echo $ticket_stats['total_tickets']; ?></p>
-                </div>
-            </div>
-        </div>
-        
-        <div class="bg-gray-800 rounded-xl border border-gray-700 p-6">
-            <div class="flex items-center">
-                <div class="p-3 bg-green-500 bg-opacity-20 rounded-lg">
-                    <i class="fas fa-folder-open text-green-400 text-xl"></i>
-                </div>
-                <div class="ml-4">
-                    <p class="text-sm text-gray-400">Open Tickets</p>
-                    <p class="text-2xl font-bold text-white"><?php echo $ticket_stats['open_tickets']; ?></p>
-                </div>
-            </div>
-        </div>
-        
-        <div class="bg-gray-800 rounded-xl border border-gray-700 p-6">
-            <div class="flex items-center">
-                <div class="p-3 bg-gray-500 bg-opacity-20 rounded-lg">
-                    <i class="fas fa-check-circle text-gray-400 text-xl"></i>
-                </div>
-                <div class="ml-4">
-                    <p class="text-sm text-gray-400">Closed Tickets</p>
-                    <p class="text-2xl font-bold text-white"><?php echo $ticket_stats['closed_tickets']; ?></p>
-                </div>
-            </div>
-        </div>
-        
-        <div class="bg-gray-800 rounded-xl border border-gray-700 p-6">
-            <div class="flex items-center">
-                <div class="p-3 bg-red-500 bg-opacity-20 rounded-lg">
-                    <i class="fas fa-exclamation-triangle text-red-400 text-xl"></i>
-                </div>
-                <div class="ml-4">
-                    <p class="text-sm text-gray-400">Urgent Tickets</p>
-                    <p class="text-2xl font-bold text-white"><?php echo $ticket_stats['urgent_tickets']; ?></p>
-                </div>
-            </div>
-        </div>
-        
-        <div class="bg-gray-800 rounded-xl border border-gray-700 p-6">
-            <div class="flex items-center">
-                <div class="p-3 bg-yellow-500 bg-opacity-20 rounded-lg">
-                    <i class="fas fa-star text-yellow-400 text-xl"></i>
-                </div>
-                <div class="ml-4">
-                    <p class="text-sm text-gray-400">New Today</p>
-                    <p class="text-2xl font-bold text-white"><?php echo $ticket_stats['new_today']; ?></p>
-                </div>
-            </div>
-        </div>
     </div>
     
     <?php if ($action_message): ?>
@@ -229,299 +132,136 @@ include '../includes/header.php';
         </div>
     <?php endif; ?>
     
-    <!-- Canned Responses Panel -->
-    <div class="bg-gray-800 rounded-xl border border-gray-700 p-6 mb-8" x-data="{ showCanned: false }">
-        <div class="flex items-center justify-between mb-4">
-            <h2 class="text-xl font-bold text-white">
-                <i class="fas fa-comments text-purple-400 mr-2"></i>Canned Responses
-            </h2>
-            <button @click="showCanned = !showCanned" class="text-gray-400 hover:text-white transition-colors">
-                <i class="fas fa-chevron-down transition-transform" :class="{ 'rotate-180': showCanned }"></i>
-            </button>
-        </div>
-        
-        <div x-show="showCanned" x-transition class="grid grid-cols-1 md:grid-cols-2 gap-4">
-            <?php foreach ($canned_responses as $key => $response): ?>
-                <div class="bg-gray-700 rounded-lg p-4 cursor-pointer hover:bg-gray-600 transition-colors" 
-                     onclick="insertCannedResponse('<?php echo addslashes($response); ?>')">
-                    <h4 class="text-white font-semibold mb-2"><?php echo ucwords(str_replace('_', ' ', $key)); ?></h4>
-                    <p class="text-gray-300 text-sm"><?php echo substr($response, 0, 100) . '...'; ?></p>
-                </div>
-            <?php endforeach; ?>
+    <!-- Filters -->
+    <div class="bg-gray-800 rounded-xl border border-gray-700 p-6 mb-8">
+        <div class="flex flex-wrap gap-4 items-center">
+            <div>
+                <label class="text-gray-300 text-sm font-medium mr-2">Status:</label>
+                <select onchange="updateFilters()" id="status-filter" class="bg-gray-700 border border-gray-600 text-white rounded-lg px-3 py-2">
+                    <option value="all" <?php echo $status_filter == 'all' ? 'selected' : ''; ?>>All</option>
+                    <option value="open" <?php echo $status_filter == 'open' ? 'selected' : ''; ?>>Open</option>
+                    <option value="in_progress" <?php echo $status_filter == 'in_progress' ? 'selected' : ''; ?>>In Progress</option>
+                    <option value="closed" <?php echo $status_filter == 'closed' ? 'selected' : ''; ?>>Closed</option>
+                </select>
+            </div>
+            <div>
+                <label class="text-gray-300 text-sm font-medium mr-2">Priority:</label>
+                <select onchange="updateFilters()" id="priority-filter" class="bg-gray-700 border border-gray-600 text-white rounded-lg px-3 py-2">
+                    <option value="all" <?php echo $priority_filter == 'all' ? 'selected' : ''; ?>>All</option>
+                    <option value="urgent" <?php echo $priority_filter == 'urgent' ? 'selected' : ''; ?>>Urgent</option>
+                    <option value="high" <?php echo $priority_filter == 'high' ? 'selected' : ''; ?>>High</option>
+                    <option value="medium" <?php echo $priority_filter == 'medium' ? 'selected' : ''; ?>>Medium</option>
+                    <option value="low" <?php echo $priority_filter == 'low' ? 'selected' : ''; ?>>Low</option>
+                </select>
+            </div>
         </div>
     </div>
     
-    <!-- Tickets List -->
-    <div class="bg-gray-800 rounded-xl border border-gray-700 p-6">
-        <h2 class="text-xl font-bold text-white mb-6">
-            <i class="fas fa-list text-blue-400 mr-2"></i>All Tickets
-        </h2>
-        
-        <?php if (empty($tickets)): ?>
-            <div class="text-center py-12">
-                <i class="fas fa-inbox text-6xl text-gray-600 mb-6"></i>
-                <h3 class="text-xl font-bold text-white mb-2">No Tickets</h3>
-                <p class="text-gray-400">No support tickets have been submitted yet</p>
-            </div>
-        <?php else: ?>
-            <div class="space-y-4">
-                <?php foreach ($tickets as $ticket): ?>
-                    <div class="bg-gray-700 rounded-lg p-4 border border-gray-600 relative overflow-hidden
-                         <?php if ($ticket['ticket_type'] == 'urgent_new'): ?>
-                             ring-2 ring-red-500 ring-opacity-50 ticket-urgent-new
-                         <?php elseif ($ticket['ticket_type'] == 'new'): ?>
-                             ring-2 ring-green-500 ring-opacity-50 ticket-new
-                         <?php endif; ?>" 
-                         x-data="{ expanded: false }">
-                        
-                        <!-- Notification Badges -->
-                        <?php if ($ticket['ticket_type'] == 'urgent_new'): ?>
-                            <div class="absolute top-4 right-4 z-10">
-                                <div class="flex items-center bg-red-500 text-white px-3 py-1 rounded-full text-xs font-bold shadow-lg animate-bounce">
-                                    <i class="fas fa-fire mr-1"></i>
-                                    URGENT NEW
-                                </div>
-                            </div>
-                        <?php elseif ($ticket['ticket_type'] == 'new'): ?>
-                            <div class="absolute top-4 right-4 z-10">
-                                <div class="flex items-center bg-green-500 text-white px-3 py-1 rounded-full text-xs font-bold shadow-lg">
-                                    <i class="fas fa-star mr-1"></i>
-                                    NEW
-                                </div>
-                            </div>
-                        <?php endif; ?>
-                        
-                        <!-- Background Glow Effects -->
-                        <?php if ($ticket['ticket_type'] == 'urgent_new'): ?>
-                            <div class="absolute inset-0 bg-gradient-to-r from-red-500/10 to-orange-500/10 rounded-lg pointer-events-none"></div>
-                        <?php elseif ($ticket['ticket_type'] == 'new'): ?>
-                            <div class="absolute inset-0 bg-gradient-to-r from-green-500/10 to-emerald-500/10 rounded-lg pointer-events-none"></div>
-                        <?php endif; ?>
-                        
-                        <div class="relative z-10">
-                            <div class="flex items-center justify-between mb-3">
-                                <div>
-                                    <div class="flex items-center mb-2">
-                                        <div class="w-8 h-8 rounded-lg flex items-center justify-center mr-3
-                                             <?php if ($ticket['ticket_type'] == 'urgent_new'): ?>
-                                                 bg-red-500 bg-opacity-30 ring-2 ring-red-400
-                                             <?php elseif ($ticket['ticket_type'] == 'new'): ?>
-                                                 bg-green-500 bg-opacity-30 ring-2 ring-green-400
-                                             <?php else: ?>
-                                                 bg-blue-500 bg-opacity-20
-                                             <?php endif; ?>">
-                                            <i class="fas fa-ticket-alt 
-                                               <?php if ($ticket['ticket_type'] == 'urgent_new'): ?>
-                                                   text-red-300
-                                               <?php elseif ($ticket['ticket_type'] == 'new'): ?>
-                                                   text-green-300
-                                               <?php else: ?>
-                                                   text-blue-400
-                                               <?php endif; ?>"></i>
-                                        </div>
-                                        <h3 class="text-white font-semibold
-                                            <?php if ($ticket['ticket_type'] == 'urgent_new'): ?>
-                                                text-red-300 font-bold
-                                            <?php elseif ($ticket['ticket_type'] == 'new'): ?>
-                                                text-green-300 font-bold
-                                            <?php endif; ?>">
-                                            <?php echo htmlspecialchars($ticket['subject']); ?>
-                                            <?php if ($ticket['ticket_type'] == 'urgent_new'): ?>
-                                                <i class="fas fa-circle text-red-400 text-xs ml-2 animate-pulse"></i>
-                                            <?php elseif ($ticket['ticket_type'] == 'new'): ?>
-                                                <i class="fas fa-circle text-green-400 text-xs ml-2"></i>
-                                            <?php endif; ?>
-                                        </h3>
-                                    </div>
-                                    <p class="text-gray-400 text-sm">
-                                        By: <?php echo htmlspecialchars($ticket['username']); ?> • 
-                                        Ticket #<?php echo $ticket['id']; ?> • 
-                                        <?php echo date('M j, Y g:i A', strtotime($ticket['created_at'])); ?>
-                                        <?php if ($ticket['assigned_username']): ?>
-                                            • Assigned to: <?php echo htmlspecialchars($ticket['assigned_username']); ?>
-                                        <?php endif; ?>
-                                    </p>
-                                </div>
-                                <div class="flex items-center space-x-2">
-                                    <span class="inline-flex items-center px-2 py-1 rounded-full text-xs font-medium
-                                         <?php if ($ticket['ticket_type'] == 'urgent_new'): ?>
-                                             bg-red-500 text-white shadow-lg animate-pulse-slow
-                                         <?php elseif ($ticket['ticket_type'] == 'new'): ?>
-                                             bg-green-500 text-white shadow-lg
-                                         <?php else: ?>
-                                             <?php 
-                                        switch($ticket['priority']) {
-                                            case 'urgent': echo 'bg-red-100 text-red-800'; break;
-                                            case 'high': echo 'bg-yellow-100 text-yellow-800'; break;
-                                            case 'medium': echo 'bg-blue-100 text-blue-800'; break;
-                                            case 'low': echo 'bg-gray-100 text-gray-800'; break;
-                                        }
-                                             ?>
-                                         <?php endif; ?>">
-                                        <?php if ($ticket['ticket_type'] == 'urgent_new'): ?>
-                                            <i class="fas fa-fire mr-1"></i>Urgent
-                                        <?php elseif ($ticket['ticket_type'] == 'new'): ?>
-                                            <i class="fas fa-star mr-1"></i>New
-                                        <?php else: ?>
-                                            <?php echo ucfirst($ticket['priority']); ?>
-                                        <?php endif; ?>
-                                    </span>
-                                    <span class="inline-flex items-center px-2 py-1 rounded-full text-xs font-medium <?php 
-                                        switch($ticket['status']) {
-                                            case 'open': echo 'bg-green-100 text-green-800'; break;
-                                            case 'in_progress': echo 'bg-blue-100 text-blue-800'; break;
-                                            case 'on_hold': echo 'bg-yellow-100 text-yellow-800'; break;
-                                            case 'resolved': echo 'bg-purple-100 text-purple-800'; break;
-                                            case 'closed': echo 'bg-gray-100 text-gray-800'; break;
-                                        }
-                                    ?>"><?php echo ucfirst(str_replace('_', ' ', $ticket['status'])); ?></span>
-                                    <button @click="expanded = !expanded" class="text-gray-400 hover:text-white transition-colors">
-                                        <i class="fas fa-chevron-down transition-transform" :class="{ 'rotate-180': expanded }"></i>
-                                    </button>
-                                </div>
-                            </div>
-                            
-                            <div x-show="expanded" x-transition class="space-y-4">
-                                <!-- Message -->
-                                <div class="bg-gray-800 rounded p-3">
-                                    <h4 class="text-white font-semibold mb-2">Message:</h4>
-                                    <p class="text-gray-300"><?php echo nl2br(htmlspecialchars($ticket['message'])); ?></p>
-                                    
-                                    <?php if (!empty($ticket['attachment_path']) && file_exists($ticket['attachment_path'])): ?>
-                                        <div class="mt-4 p-3 bg-gray-700 rounded-lg">
-                                            <h5 class="text-white font-medium mb-2">
-                                                <i class="fas fa-paperclip mr-2"></i>Attachment
-                                            </h5>
-                                            <div class="flex items-center">
-                                                <?php 
-                                                $file_ext = strtolower(pathinfo($ticket['attachment_path'], PATHINFO_EXTENSION));
-                                                $file_name = $ticket['attachment_name'] ?? basename($ticket['attachment_path']);
-                                                $icon_class = match($file_ext) {
-                                                    'jpg', 'jpeg', 'png', 'gif' => 'fa-image text-green-400',
-                                                    'pdf' => 'fa-file-pdf text-red-400',
-                                                    'txt', 'log' => 'fa-file-alt text-blue-400',
-                                                    default => 'fa-file text-gray-400'
-                                                };
-                                                ?>
-                                                <i class="fas <?php echo $icon_class; ?> mr-2"></i>
-                                                <a href="../<?php echo htmlspecialchars($ticket['attachment_path']); ?>" 
-                                                   target="_blank" 
-                                                   class="text-fivem-primary hover:text-yellow-500 transition-colors font-medium">
-                                                    <?php echo htmlspecialchars($file_name); ?>
-                                                </a>
-                                                <span class="text-xs ml-2 text-gray-500">
-                                                    (<?php echo strtoupper($file_ext); ?>)
-                                                </span>
-                                            </div>
-                                        </div>
-                                    <?php endif; ?>
-                                </div>
-                                
-                                <!-- Admin Response -->
-                                <?php if ($ticket['admin_response']): ?>
-                                    <div class="bg-blue-500 bg-opacity-20 border-l-4 border-blue-500 rounded p-3">
-                                        <h4 class="text-blue-400 font-semibold mb-2">Admin Response:</h4>
-                                        <p class="text-gray-300"><?php echo nl2br(htmlspecialchars($ticket['admin_response'])); ?></p>
-                                    </div>
-                                <?php endif; ?>
-                                
-                                <!-- Admin Actions -->
-                                <div class="grid grid-cols-1 lg:grid-cols-3 gap-4">
-                                    <!-- Status Update -->
-                                    <form method="POST" class="bg-gray-800 rounded p-3">
-                                        <h4 class="text-white font-semibold mb-2">Update Status:</h4>
-                                        <input type="hidden" name="action" value="update_status">
-                                        <input type="hidden" name="ticket_id" value="<?php echo $ticket['id']; ?>">
-                                        <div class="flex space-x-2">
-                                            <select name="status" class="flex-1 bg-gray-600 border border-gray-500 text-white rounded px-3 py-2">
-                                                <option value="open" <?php echo $ticket['status'] == 'open' ? 'selected' : ''; ?>>Open</option>
-                                                <option value="in_progress" <?php echo $ticket['status'] == 'in_progress' ? 'selected' : ''; ?>>In Progress</option>
-                                                <option value="on_hold" <?php echo $ticket['status'] == 'on_hold' ? 'selected' : ''; ?>>On Hold</option>
-                                                <option value="resolved" <?php echo $ticket['status'] == 'resolved' ? 'selected' : ''; ?>>Resolved</option>
-                                                <option value="closed" <?php echo $ticket['status'] == 'closed' ? 'selected' : ''; ?>>Closed</option>
-                                            </select>
-                                            <button type="submit" class="bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded transition-colors">
-                                                Update
-                                            </button>
-                                        </div>
-                                    </form>
-                                    
-                                    <!-- Assign Ticket -->
-                                    <form method="POST" class="bg-gray-800 rounded p-3">
-                                        <h4 class="text-white font-semibold mb-2">Assign To:</h4>
-                                        <input type="hidden" name="action" value="assign_ticket">
-                                        <input type="hidden" name="ticket_id" value="<?php echo $ticket['id']; ?>">
-                                        <div class="flex space-x-2">
-                                            <select name="assigned_to" class="flex-1 bg-gray-600 border border-gray-500 text-white rounded px-3 py-2">
-                                                <option value="">Unassigned</option>
-                                                <?php foreach ($staff_members as $staff): ?>
-                                                    <option value="<?php echo $staff['id']; ?>" <?php echo $ticket['assigned_to'] == $staff['id'] ? 'selected' : ''; ?>>
-                                                        <?php echo htmlspecialchars($staff['username']); ?>
-                                                    </option>
-                                                <?php endforeach; ?>
-                                            </select>
-                                            <button type="submit" class="bg-purple-600 hover:bg-purple-700 text-white px-4 py-2 rounded transition-colors">
-                                                Assign
-                                            </button>
-                                        </div>
-                                    </form>
-                                    
-                                    <!-- Add Response -->
-                                    <form method="POST" class="bg-gray-800 rounded p-3">
-                                        <h4 class="text-white font-semibold mb-2">Add Response:</h4>
-                                        <input type="hidden" name="action" value="add_response">
-                                        <input type="hidden" name="ticket_id" value="<?php echo $ticket['id']; ?>">
-                                        <textarea name="admin_response" rows="3" placeholder="Type your response..." 
-                                                  class="w-full bg-gray-600 border border-gray-500 text-white rounded px-3 py-2 mb-2 resize-none response-textarea"></textarea>
-                                        <button type="submit" class="w-full bg-green-600 hover:bg-green-700 text-white py-2 rounded transition-colors">
-                                            <i class="fas fa-reply mr-2"></i>Send Response
-                                        </button>
-                                    </form>
-                                </div>
-                            </div>
-                        </div>
-                    <?php endforeach; ?>
+    <!-- Tickets -->
+    <div class="space-y-6">
+        <?php foreach ($tickets as $ticket): ?>
+            <div class="bg-gray-800 rounded-xl border border-gray-700 p-6" x-data="{ expanded: false }">
+                <div class="flex flex-col sm:flex-row sm:items-center justify-between mb-4">
+                    <div>
+                        <h3 class="text-white font-semibold text-lg"><?php echo htmlspecialchars($ticket['subject']); ?></h3>
+                        <p class="text-gray-400 text-sm">
+                            Ticket #<?php echo $ticket['id']; ?> by <?php echo htmlspecialchars($ticket['username']); ?> â€¢ 
+                            <?php echo date('M j, Y g:i A', strtotime($ticket['created_at'])); ?>
+                        </p>
+                    </div>
+                    <div class="flex items-center space-x-2 mt-2 sm:mt-0">
+                        <span class="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium
+                            <?php 
+                            switch($ticket['priority']) {
+                                case 'low': echo 'bg-gray-100 text-gray-800'; break;
+                                case 'medium': echo 'bg-blue-100 text-blue-800'; break;
+                                case 'high': echo 'bg-yellow-100 text-yellow-800'; break;
+                                case 'urgent': echo 'bg-red-100 text-red-800'; break;
+                            }
+                            ?>">
+                            <?php echo ucfirst($ticket['priority']); ?>
+                        </span>
+                        <span class="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium
+                            <?php 
+                            switch($ticket['status']) {
+                                case 'open': echo 'bg-green-100 text-green-800'; break;
+                                case 'in_progress': echo 'bg-yellow-100 text-yellow-800'; break;
+                                case 'closed': echo 'bg-gray-100 text-gray-800'; break;
+                            }
+                            ?>">
+                            <?php echo ucfirst(str_replace('_', ' ', $ticket['status'])); ?>
+                        </span>
+                        <button @click="expanded = !expanded" class="text-gray-400 hover:text-white transition-colors">
+                            <i class="fas fa-chevron-down" :class="{ 'rotate-180': expanded }"></i>
+                        </button>
+                    </div>
                 </div>
-            <?php endif; ?>
-        </div>
+                
+                <div x-show="expanded" x-transition class="space-y-4">
+                    <!-- Original Message -->
+                    <div class="bg-gray-700 rounded-lg p-4">
+                        <h4 class="text-white font-semibold mb-2">Original Message</h4>
+                        <p class="text-gray-300"><?php echo nl2br(htmlspecialchars($ticket['message'])); ?></p>
+                    </div>
+                    
+                    <!-- Admin Response -->
+                    <?php if ($ticket['admin_response']): ?>
+                        <div class="bg-blue-500 bg-opacity-20 border border-blue-500 rounded-lg p-4">
+                            <h4 class="text-blue-400 font-semibold mb-2">
+                                <i class="fas fa-user-shield mr-2"></i>Admin Response
+                            </h4>
+                            <p class="text-gray-300"><?php echo nl2br(htmlspecialchars($ticket['admin_response'])); ?></p>
+                        </div>
+                    <?php endif; ?>
+                    
+                    <!-- Admin Actions -->
+                    <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+                        <!-- Status Update -->
+                        <form method="POST" class="bg-gray-700 rounded-lg p-4">
+                            <h4 class="text-white font-semibold mb-3">Update Status</h4>
+                            <input type="hidden" name="action" value="update_status">
+                            <input type="hidden" name="ticket_id" value="<?php echo $ticket['id']; ?>">
+                            <div class="flex space-x-2">
+                                <select name="status" class="flex-1 bg-gray-600 border border-gray-500 text-white rounded-lg px-3 py-2">
+                                    <option value="open" <?php echo $ticket['status'] == 'open' ? 'selected' : ''; ?>>Open</option>
+                                    <option value="in_progress" <?php echo $ticket['status'] == 'in_progress' ? 'selected' : ''; ?>>In Progress</option>
+                                    <option value="closed" <?php echo $ticket['status'] == 'closed' ? 'selected' : ''; ?>>Closed</option>
+                                </select>
+                                <button type="submit" class="bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded-lg transition-colors">
+                                    Update
+                                </button>
+                            </div>
+                        </form>
+                        
+                        <!-- Add Response -->
+                        <form method="POST" class="bg-gray-700 rounded-lg p-4">
+                            <h4 class="text-white font-semibold mb-3">Add Response</h4>
+                            <input type="hidden" name="action" value="add_response">
+                            <input type="hidden" name="ticket_id" value="<?php echo $ticket['id']; ?>">
+                            <textarea name="admin_response" rows="3" placeholder="Type your response..." 
+                                      class="w-full bg-gray-600 border border-gray-500 text-white rounded-lg px-3 py-2 mb-2 resize-none"></textarea>
+                            <button type="submit" class="w-full bg-green-600 hover:bg-green-700 text-white py-2 rounded-lg transition-colors">
+                                <i class="fas fa-reply mr-2"></i>Send Response
+                            </button>
+                        </form>
+                    </div>
+                </div>
+            </div>
+        <?php endforeach; ?>
     </div>
 </div>
 
 <script>
-// Insert canned response into active textarea
-function insertCannedResponse(response) {
-    const activeTextarea = document.querySelector('.response-textarea:focus') || document.querySelector('.response-textarea');
-    if (activeTextarea) {
-        activeTextarea.value = response;
-        activeTextarea.focus();
-        showNotification('Canned Response', 'Response inserted successfully', 'success');
-    }
+function updateFilters() {
+    const status = document.getElementById('status-filter').value;
+    const priority = document.getElementById('priority-filter').value;
+    
+    const url = new URL(window.location);
+    url.searchParams.set('status', status);
+    url.searchParams.set('priority', priority);
+    
+    window.location.href = url.toString();
 }
 </script>
-
-<style>
-/* Enhanced animations for admin ticket highlighting */
-.animate-pulse-slow {
-    animation: pulse-slow 2s cubic-bezier(0.4, 0, 0.6, 1) infinite;
-}
-
-@keyframes pulse-slow {
-    0%, 100% {
-        opacity: 1;
-    }
-    50% {
-        opacity: 0.8;
-    }
-}
-
-/* Urgent ticket glow effect */
-.ticket-urgent-new {
-    box-shadow: 0 0 25px rgba(239, 68, 68, 0.4);
-}
-
-.ticket-new {
-    box-shadow: 0 0 20px rgba(34, 197, 94, 0.3);
-}
-</style>
 
 <?php include '../includes/footer.php'; ?>
