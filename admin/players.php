@@ -804,6 +804,9 @@ include '../includes/header.php';
                                             <span class="text-white"><?php echo round($player['total_playtime'] / 60); ?>h</span>
                                         </div>
                                     <?php endif; ?>
+                                    <div class="text-xs text-gray-500 mt-1">
+                                        <?php echo $player['vehicle_count']; ?> vehicles • $<?php echo number_format($player['total_money']); ?>
+                                    </div>
                                 </div>
                             </td>
                             <td class="px-6 py-4 whitespace-nowrap">
