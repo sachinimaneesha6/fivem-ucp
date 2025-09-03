@@ -376,6 +376,29 @@ $stats_stmt = $db->prepare($stats_query);
 $stats_stmt->execute();
 $stats = $stats_stmt->fetch(PDO::FETCH_ASSOC);
 
+// Get detailed player stats for each player
+foreach ($players as &$player) {
+    // Get character count and total money
+    $char_stats_query = "SELECT 
+        COUNT(*) as character_count,
+        SUM(JSON_EXTRACT(money, '$.bank') + JSON_EXTRACT(money, '$.cash')) as total_money
+        FROM players WHERE license = :license";
+    $char_stats_stmt = $db->prepare($char_stats_query);
+    $char_stats_stmt->bindParam(':license', $player['license']);
+    $char_stats_stmt->execute();
+    $char_stats = $char_stats_stmt->fetch(PDO::FETCH_ASSOC);
+    
+    $player['character_count'] = $char_stats['character_count'] ?? 0;
+    $player['total_money'] = $char_stats['total_money'] ?? 0;
+    
+    // Get vehicle count
+    $vehicle_count_query = "SELECT COUNT(*) FROM player_vehicles WHERE license = :license";
+    $vehicle_count_stmt = $db->prepare($vehicle_count_query);
+    $vehicle_count_stmt->bindParam(':license', $player['license']);
+    $vehicle_count_stmt->execute();
+    $player['vehicle_count'] = $vehicle_count_stmt->fetchColumn() ?? 0;
+}
+
 $page_title = 'Player Management';
 include '../includes/header.php';
 ?>
